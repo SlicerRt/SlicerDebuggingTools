@@ -55,22 +55,22 @@ class NodeModifiedStatisticsWidget(ScriptedLoadableModuleWidget):
     self.layout.addWidget(statisticsCollapsibleButton)
     statisticsFormLayout = qt.QFormLayout(statisticsCollapsibleButton)
 
-    self.latestLineEdit = qt.QLineEdit('0')
+    self.latestLineEdit = qt.QLineEdit('N/A')
     self.latestLineEdit.setReadOnly(True)
     statisticsFormLayout.addRow("Latest (ms): ", self.latestLineEdit)
-    self.averageLineEdit = qt.QLineEdit('0')
+    self.averageLineEdit = qt.QLineEdit('N/A')
     self.averageLineEdit.setReadOnly(True)
-    self.fpsLineEdit = qt.QLineEdit('0')
+    self.fpsLineEdit = qt.QLineEdit('N/A')
     self.fpsLineEdit.setReadOnly(True)
     statisticsFormLayout.addRow("Average (updates per second): ", self.fpsLineEdit)
     statisticsFormLayout.addRow("Average (ms): ", self.averageLineEdit)
-    self.sdLineEdit = qt.QLineEdit('0')
+    self.sdLineEdit = qt.QLineEdit('N/A')
     self.sdLineEdit.setReadOnly(True)
     statisticsFormLayout.addRow("SD (ms): ", self.sdLineEdit)
-    self.minLineEdit = qt.QLineEdit('0')
+    self.minLineEdit = qt.QLineEdit('N/A')
     self.minLineEdit.setReadOnly(True)
     statisticsFormLayout.addRow("Min (ms): ", self.minLineEdit)
-    self.maxLineEdit = qt.QLineEdit('0')
+    self.maxLineEdit = qt.QLineEdit('N/A')
     self.maxLineEdit.setReadOnly(True)
     statisticsFormLayout.addRow("Max (ms): ", self.maxLineEdit)
 
@@ -78,7 +78,7 @@ class NodeModifiedStatisticsWidget(ScriptedLoadableModuleWidget):
     self.resetStatisticsButton.enabled = True
     statisticsFormLayout.addRow(self.resetStatisticsButton)
 
-    self.showSamplesButton = qt.QPushButton("Show latest samples")
+    self.showSamplesButton = qt.QPushButton("Show Latest Samples")
     self.showSamplesButton.enabled = True
     statisticsFormLayout.addRow(self.showSamplesButton)
 
