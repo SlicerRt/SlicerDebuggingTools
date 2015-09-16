@@ -39,11 +39,15 @@ class NodeModifiedStatisticsWidget(ScriptedLoadableModuleWidget):
     self.inputSelector.addEnabled = False
     self.inputSelector.removeEnabled = False
     self.inputSelector.noneEnabled = False
-    self.inputSelector.showHidden = True
+    self.inputSelector.showHidden = False
     self.inputSelector.showChildNodeTypes = False
     self.inputSelector.setMRMLScene( slicer.mrmlScene )
     parametersFormLayout.addRow("Input Node: ", self.inputSelector)
 
+    self.showHiddenNodesCheckBox = qt.QCheckBox('')
+    self.showHiddenNodesCheckBox.checked = False
+    parametersFormLayout.addRow('Show Hidden Nodes: ', self.showHiddenNodesCheckBox) 
+    
     self.computeStatisticsButton = qt.QPushButton("Compute Statistics")
     self.computeStatisticsButton.enabled = False
     self.computeStatisticsButton.checkable = True
@@ -90,7 +94,8 @@ class NodeModifiedStatisticsWidget(ScriptedLoadableModuleWidget):
     self.resetStatisticsButton.connect('clicked(bool)', self.onResetStatisticsClicked)
     self.showSamplesButton.connect('clicked(bool)', self.onShowSamplesClicked)
     self.inputSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.onSelect)
-
+    self.showHiddenNodesCheckBox.connect('stateChanged(int)', self.onShowHiddenNodesChecked)
+        
     # Add vertical spacer
     self.layout.addStretch(1)
 
@@ -102,6 +107,9 @@ class NodeModifiedStatisticsWidget(ScriptedLoadableModuleWidget):
   def cleanup(self):
     pass
 
+  def onShowHiddenNodesChecked(self, state):
+    self.inputSelector.showHidden = state
+    
   def onSelect(self):
     self.computeStatisticsButton.enabled = self.inputSelector.currentNode()
     if self.computeStatisticsButton.checked:
