@@ -110,13 +110,17 @@ class NodeModifiedStatisticsWidget(ScriptedLoadableModuleWidget):
   def onShowHiddenNodesChecked(self, state):
     self.inputSelector.showHidden = state
     
-  def onSelect(self):
+  def onSelect(self):    
+    if self.computeStatisticsButton.enabled:
+      if self.computeStatisticsButton.checked:
+        self.logic.removeModifiedObserver()
+        self.resetStatsDisplay()
+        self.logic.reset()
+        self.computeStatisticsButton.checked = False
+      elif not self.computeStatisticsButton.checked:      
+        self.resetStatsDisplay()
+        self.logic.reset()      
     self.computeStatisticsButton.enabled = self.inputSelector.currentNode()
-    if self.computeStatisticsButton.checked:
-      self.logic.removeModifiedObserver()
-      self.resetStatsDisplay()
-      self.logic.reset()
-      self.computeStatisticsButton.checked = False
 
   def onComputeStatisticsClicked(self):
     if self.computeStatisticsButton.checked:
@@ -167,6 +171,7 @@ class NodeModifiedStatisticsLogic(ScriptedLoadableModuleLogic):
     self.numberOfMovingAverageSamplesCollected = 0
 
   def addModifiedObserver(self, inputNode, ouputLineEdits):
+    self.previousTimeSec = -1
     self.ouputLineEdits = ouputLineEdits
     self.removeModifiedObserver()
     self.latestInputNode = inputNode
@@ -180,19 +185,16 @@ class NodeModifiedStatisticsLogic(ScriptedLoadableModuleLogic):
 
   def nodeModifiedCallback(self, modifiedNode, event=None):
     currentTimeSec = time.time()
-
-    if self.previousTimeSec<0:
+    if self.previousTimeSec < 0:
       # this is the first modified call, we cannot compute elapsed time yet
       self.previousTimeSec = currentTimeSec
       return
-
     # Latest
     latestElapsedTimeSec = currentTimeSec - self.previousTimeSec
     self.movingAverageSamples[self.numberOfMovingAverageSamplesCollected % len(self.movingAverageSamples)] = latestElapsedTimeSec
-
     self.numberOfMovingAverageSamplesCollected = self.numberOfMovingAverageSamplesCollected + 1
     # Max
-    if self.previousTimeSec > 0 and latestElapsedTimeSec > self.maxTimeSec:
+    if latestElapsedTimeSec > self.maxTimeSec:
       self.maxTimeSec = latestElapsedTimeSec
     # Min
     if latestElapsedTimeSec < self.minTimeSec:
