@@ -11,17 +11,14 @@ class NodeModifiedStatistics(ScriptedLoadableModule):
 
   def __init__(self, parent):
     ScriptedLoadableModule.__init__(self, parent)
-    self.parent.title = "NodeModifiedStatistics" # TODO make this more human readable by adding spaces
-    self.parent.categories = ["Utilities"]
+    self.parent.title = "Node modified statistics"
+    self.parent.categories = ["Developer Tools"]
     self.parent.dependencies = []
-    self.parent.contributors = ["Mikael Brudfors (Laboratorio de Imagen Medica, Hospital Gregorio Maranon - http://image.hggm.es/)"] # replace with "Firstname Lastname (Organization)"
+    self.parent.contributors = ["Mikael Brudfors (Laboratorio de Imagen Medica, Hospital Gregorio Maranon - http://image.hggm.es/), Andras Lasso (PerkLab, Queen's University)"] # replace with "Firstname Lastname (Organization)"
     self.parent.helpText = """
-    This is an example of scripted loadable module bundled in an extension.
-    It performs a simple thresholding on the input volume and optionally captures a screenshot.
+    Collect statistics about refresh rate of continuously changing nodes. The module observes Modified event of the selected node.
     """
     self.parent.acknowledgementText = """
-    This file was originally developed by Jean-Christophe Fillion-Robin, Kitware Inc.
-    and Steve Pieper, Isomics, Inc. and was partially funded by NIH grant 3P41RR013218-12S1.
 """ # replace with organization, grant and thanks.
 
 class NodeModifiedStatisticsWidget(ScriptedLoadableModuleWidget):
