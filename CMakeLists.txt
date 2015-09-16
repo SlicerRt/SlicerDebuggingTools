@@ -8,7 +8,7 @@ set(EXTENSION_HOMEPAGE "http://www.slicer.org/slicerWiki/index.php/Documentation
 set(EXTENSION_CATEGORY "Developer Tools")
 set(EXTENSION_CONTRIBUTORS "Andras Lasso (PerkLab, Queen's University), Mikael Brudfors (Laboratorio de Imagen Medica, Hospital Gregorio Maranon - http://image.hggm.es/)")
 set(EXTENSION_DESCRIPTION "This extension contains various tools useful for developing and debugging modules. Includes a tool for connecting Slicer to remote visual debugger for Python scripts using PyDev (http://pydev.org/) and node update performance statistics")
-set(EXTENSION_ICONURL "http://www.example.com/Slicer/Extensions/DebuggingTools.png")
+set(EXTENSION_ICONURL "https://raw.githubusercontent.com/SlicerRt/SlicerDebuggingTools/master/DebuggingTools.png")
 set(EXTENSION_SCREENSHOTURLS "https://www.slicer.org/slicerWiki/images/f/f2/PyDevRemoteDebugSlicer.png")
 
 #-----------------------------------------------------------------------------
