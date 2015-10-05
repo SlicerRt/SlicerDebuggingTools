@@ -27,6 +27,8 @@ class PyDevRemoteDebug(ScriptedLoadableModule):
     This work is part of the SparKit project, funded by An Applied Cancer Research Unit of Cancer Care Ontario with funds provided by the Ministry of Health and Long-Term Care and the Ontario Consortium for Adaptive Interventions in Radiation Oncology (OCAIRO) to provide free, open-source toolset for radiotherapy and related image-guided interventions.
     """
 
+    self.logic = PyDevRemoteDebugLogic()
+
 #
 # PyDevRemoteDebugWidget
 #
@@ -35,7 +37,239 @@ class PyDevRemoteDebugWidget(ScriptedLoadableModuleWidget):
   """Uses ScriptedLoadableModuleWidget base class, available at:
   https://github.com/Slicer/Slicer/blob/master/Base/Python/slicer/ScriptedLoadableModule.py
   """
+
+  def __init__(self, parent):
+    ScriptedLoadableModuleWidget.__init__(self, parent)
+
+    #if 'PyDevRemoteDebugLogic' in vars(slicer):
+    #  self.logic = PyDevRemoteDebugLogic()
+    #else
+    #  self.logic = slicer.PyDevRemoteDebugLogic
+
+    # If user switches quickly to the module widget then the logic may not have been created yet
+    #if not slicer.modules.PyDevRemoteDebugInstance.logic:
+    #  slicer.modules.PyDevRemoteDebugInstance.logic = PyDevRemoteDebugLogic()
+    self.logic = slicer.modules.PyDevRemoteDebugInstance.logic
+
+  def setup(self):
+
+    # Do not show reload&test in developer mode, as debugger is mostly used by developers
+    # but they are not interested in debugging this module.
+    ScriptedLoadableModuleWidget.setup(self)
+
+    # Instantiate and connect widgets ...
+
+
+    # Settings Area
+    self.settingsCollapsibleButton = ctk.ctkCollapsibleButton()
+    self.settingsCollapsibleButton.text = "Settings"
+    self.settingsCollapsibleButton.collapsed = True
+    self.layout.addWidget(self.settingsCollapsibleButton)
+    settingsFormLayout = qt.QFormLayout(self.settingsCollapsibleButton)
+    
+    # Debugger selector
+    self.debuggerSelector = qt.QComboBox()
+    self.debuggerSelector.toolTip = "Chose debugger server."
+    debugger = self.logic.getDebugger()
+    self.debuggerSelector.addItem("Eclipse")
+    self.debuggerSelector.addItem("PyCharm")
+    if debugger=='Eclipse':
+      self.debuggerSelector.currentIndex = 0
+    elif debugger=='PyCharm':
+      self.debuggerSelector.currentIndex = 1
+    else:
+      self.debuggerSelector.currentIndex = -1
+    settingsFormLayout.addRow("Debugger: ", self.debuggerSelector)
+    self.debuggerSelector.connect('currentIndexChanged(int)', self.onDebuggerSelected)
+    
+    # pydevd.py path selector
+    pydevdDir=self.logic.getEclipsePydevdDir(enableAutoDetect=(debugger=='Eclipse'))
+    self.pydevdDirSelector = ctk.ctkPathLineEdit()
+    self.pydevdDirSelector.setCurrentPath(pydevdDir)
+    self.pydevdDirSelector.filters=self.pydevdDirSelector.Dirs
+    self.pydevdDirSelector.setMaximumWidth(300)
+    self.pydevdDirSelector.setToolTip("Set the path to pydevd.py. It is in the eclipse folder within plugins/...pydev.../pysrc.")
+    settingsFormLayout.addRow("Eclipse pydevd.py directory:", self.pydevdDirSelector)
+
+    # pycharm-debug.egg path selector
+    pyCharmDebugEggPathSelector=self.logic.getPyCharmDebugEggPath(enableAutoDetect=(debugger=='PyCharm'))
+    self.pyCharmDebugEggPathSelector = ctk.ctkPathLineEdit()
+    self.pyCharmDebugEggPathSelector.setCurrentPath(pyCharmDebugEggPathSelector)
+    self.pyCharmDebugEggPathSelector.nameFilters=['pycharm-debug.egg']
+    self.pyCharmDebugEggPathSelector.setMaximumWidth(300)
+    self.pyCharmDebugEggPathSelector.setToolTip("Set the path to pycharm-debug.egg . It is in the .../PyCharm/debug-eggs folder.")
+    settingsFormLayout.addRow("PyCharm pycharm-debug.egg path:", self.pyCharmDebugEggPathSelector)
+
+    if not self.isCurrentSettingValid():
+      self.settingsCollapsibleButton.collapsed = False
+    
+    # Connection Area
+    connectionCollapsibleButton = ctk.ctkCollapsibleButton()
+    connectionCollapsibleButton.text = "Connection"
+    connectionCollapsibleButton.collapsed = False
+    self.layout.addWidget(connectionCollapsibleButton)
+    connectionFormLayout = qt.QFormLayout(connectionCollapsibleButton)
+
+    # Connect Button
+    self.connectButton = qt.QPushButton("Connect to debug server")
+    self.connectButton.toolTip = "Connect to remote debug server"
+    self.connectButton.setAutoFillBackground(True)
+    self.connectButton.setStyleSheet("background-color: rgb(150, 255, 150); color: rgb(0, 0, 0)")
+    connectionFormLayout.addRow(self.connectButton)
+
+    # Auto-connect button (only show after a successful connection to make sure
+    # Slicer does not hang on startup due to failed attempt to connect to debugger)
+    connected = self.logic.isConnected()
+    self.autoConnectCheckBox = qt.QCheckBox()
+    self.autoConnectCheckBox.visible = connected
+    self.autoConnectCheckBox.checked = self.logic.getDebuggerAutoConnect()
+    self.autoConnectCheckBox.setToolTip("If checked, Slicer will attempt to connect to the remote debugger on startup.")
+    self.autoConnectCheckBoxLabel = qt.QLabel("Auto-connect on next application startup:")
+    self.autoConnectCheckBoxLabel.visible = connected
+    connectionFormLayout.addRow(self.autoConnectCheckBoxLabel, self.autoConnectCheckBox)
+
+    # Connections
+    self.connectButton.connect('clicked(bool)', self.onConnect)
+    self.autoConnectCheckBox.connect('toggled(bool)', self.onAutoConnectChanged)
+
+    # Add vertical spacer
+    self.layout.addStretch(1)
+    
+    self.onDebuggerSelected()
+
+  def cleanup(self):
+    pass
+
+  def onDebuggerSelected(self):
   
+    self.logic.saveDebugger(self.debuggerSelector.currentText)
+
+    if self.debuggerSelector.currentText=='Eclipse':
+      self.connectButton.text = "Connect to Eclipse debugger"
+      self.connectButton.toolTip = "Connect to PyDev remote debug server"
+      self.pydevdDirSelector.enabled = True
+      self.pyCharmDebugEggPathSelector.enabled = False
+      # Auto-detect path
+      if not self.pydevdDirSelector.currentPath:
+        pydevdDir=self.logic.getEclipsePydevdDir(enableAutoDetect=True)
+        if pydevdDir:
+          self.pydevdDirSelector.setCurrentPath(pydevdDir)
+    elif self.debuggerSelector.currentText=='PyCharm':
+      self.connectButton.text = "Connect to PyCharm debugger"
+      self.connectButton.toolTip = "Connect to PyCharm remote debug server"
+      self.pydevdDirSelector.enabled = False
+      self.pyCharmDebugEggPathSelector.enabled = True
+      # Auto-detect path
+      if not self.pyCharmDebugEggPathSelector.currentPath:
+        eggDir=self.logic.getPyCharmDebugEggPath(enableAutoDetect=True)
+        if eggDir:
+          self.pyCharmDebugEggPathSelector.setCurrentPath(eggDir)
+    else:
+      self.pydevdDirSelector.enabled = False
+      self.pyCharmDebugEggPathSelector.enabled = False
+
+  def isCurrentSettingValid(self):
+    if not self.logic.getDebugger():
+      return False
+    if self.logic.getDebugger()=="Eclipse" and self.logic.isValidPydevdDir(self.pydevdDirSelector.currentPath):
+      return True
+    if self.logic.getDebugger()=="PyCharm" and self.logic.isValidPyCharmDebugEggPath(self.pyCharmDebugEggPathSelector.currentPath):
+      return True
+    return False
+
+  def onAutoConnectChanged(self, enabled):
+    self.logic.saveDebuggerAutoConnect(enabled)
+
+  def onConnect(self):
+
+    debugger = self.debuggerSelector.currentText
+    if debugger=='Eclipse':
+      pydevdDir=self.pydevdDirSelector.currentPath
+      # Verify path
+      if not self.logic.isValidPydevdDir(pydevdDir):
+        qt.QMessageBox.warning(slicer.util.mainWindow(),
+          "Connect to PyDev", 'Please set the correct path to pydevd.py in the settings panel')
+        self.settingsCollapsibleButton.collapsed = False
+        return
+      self.logic.savePydevdDir(pydevdDir)
+    elif debugger=='PyCharm':
+      pydevdDir=self.pyCharmDebugEggPathSelector.currentPath
+      # Verify path
+      if not self.logic.isValidPyCharmDebugEggPath(pydevdDir):
+        qt.QMessageBox.warning(slicer.util.mainWindow(),
+          "Connect to PyCharm", 'Please set the correct path to PyCharm debug egg file in the settings panel')
+        self.settingsCollapsibleButton.collapsed = False
+        return
+      self.logic.savePyCharmDebugEggPath(pydevdDir)
+    else:
+      qt.QMessageBox.warning(slicer.util.mainWindow(),
+          "Connect to Python remote debug server", 'Please select a debugger in the settings panel')
+      self.settingsCollapsibleButton.collapsed = False
+      return
+
+    self.logic.connectionCompleteCallback = self.onConnectionComplete
+    self.logic.connect()
+
+  def onConnectionComplete(self, connected):
+    if connected:
+      self.connectButton.text = "Connected to debug server"
+      self.autoConnectCheckBox.visible = True
+      self.autoConnectCheckBoxLabel.visible = True
+    else:
+      self.connectButton.text = "Connect to debug server"
+
+#
+# PyDevRemoteDebugLogic
+#
+
+class PyDevRemoteDebugLogic(ScriptedLoadableModuleLogic):
+  """This class should implement all the actual
+  computation done by your module.  The interface
+  should be such that other python code can import
+  this class and make use of the functionality without
+  requiring an instance of the Widget.
+  Uses ScriptedLoadableModuleLogic base class, available at:
+  https://github.com/Slicer/Slicer/blob/master/Base/Python/slicer/ScriptedLoadableModule.py
+  """
+
+  def __init__(self):
+    ScriptedLoadableModuleLogic.__init__(self)
+
+    self.portNumber = 5678
+
+    # This function is called when connection request is completed. It takes a single bool argument,
+    # which is set to True if the connection is established.
+    self.connectionCompleteCallback = None
+
+    self.enableDebuggerAutoConnectAfterSuccessfulConnection = False
+
+    # allow some time for all modules to initialize and then connect
+    debuggerAutoConnectDelayMsec = 3000
+    qt.QTimer.singleShot(debuggerAutoConnectDelayMsec, self.onDebuggerAutoConnect)
+
+  def onDebuggerAutoConnect(self):
+    if not self.getDebuggerAutoConnect():
+      return
+    logging.debug("Auto-connect to Python remote debug server")
+    # Disable auto-connect to prevent hanging Slicer on every startup in case there is no debugger available anymore
+    self.enableDebuggerAutoConnectAfterSuccessfulConnection = True
+    self.saveDebuggerAutoConnect(False)
+    self.connect()
+    logging.debug("Auto-connect to Python remote debug server completed")
+
+  def getDebuggerAutoConnect(self):
+    settings = qt.QSettings()
+    if settings.contains('Developer/PythonRemoteDebugAutoConnect'):
+      return settings.value('Developer/PythonRemoteDebugAutoConnect').lower() == 'true'
+    return False
+
+  def saveDebuggerAutoConnect(self, autoConnect):
+    # don't save it if already saved
+    settings = qt.QSettings()
+    if self.getDebuggerAutoConnect()==autoConnect:
+      return
+    settings.setValue('Developer/PythonRemoteDebugAutoConnect',autoConnect)
+
   def getDebugger(self):
     settings = qt.QSettings()
     if settings.contains('Developer/PythonRemoteDebugServer'):
@@ -43,7 +277,7 @@ class PyDevRemoteDebugWidget(ScriptedLoadableModuleWidget):
       if debugger=="Eclipse" or debugger=="PyCharm":
         return debugger
     return ''
-  
+
   def saveDebugger(self, debugger):
     # don't save it if already saved
     settings = qt.QSettings()
@@ -65,7 +299,7 @@ class PyDevRemoteDebugWidget(ScriptedLoadableModuleWidget):
         for filename in fnmatch.filter(files, pattern):
             return os.path.join(path, filename)
     return None
-    
+
   def getEclipsePydevdDir(self, enableAutoDetect = False):
     settings = qt.QSettings()
     if settings.contains('Developer/EclipsePyDevDir'):
@@ -90,24 +324,24 @@ class PyDevRemoteDebugWidget(ScriptedLoadableModuleWidget):
     # not found
     return ''
 
-  def savePydevdDir(self, pydevdDir): 
-    # don't save it if already saved 
-    settings = qt.QSettings() 
-    if settings.contains('Developer/EclipsePyDevDir'): 
-      pydevdDirSaved = settings.value('Developer/EclipsePyDevDir') 
-      if pydevdDirSaved == pydevdDir: 
-        return 
-    settings.setValue('Developer/EclipsePyDevDir',pydevdDir) 
+  def savePydevdDir(self, pydevdDir):
+    # don't save it if already saved
+    settings = qt.QSettings()
+    if settings.contains('Developer/EclipsePyDevDir'):
+      pydevdDirSaved = settings.value('Developer/EclipsePyDevDir')
+      if pydevdDirSaved == pydevdDir:
+        return
+    settings.setValue('Developer/EclipsePyDevDir',pydevdDir)
 
-  def savePyCharmDebugEggPath(self, pydevdDir): 
-    # don't save it if already saved 
-    settings = qt.QSettings() 
-    if settings.contains('Developer/PyCharmDebugEggPath'): 
-      pydevdDirSaved = settings.value('Developer/PyCharmDebugEggPath') 
-      if pydevdDirSaved == pydevdDir: 
-        return 
-    settings.setValue('Developer/PyCharmDebugEggPath',pydevdDir) 
-    
+  def savePyCharmDebugEggPath(self, pydevdDir):
+    # don't save it if already saved
+    settings = qt.QSettings()
+    if settings.contains('Developer/PyCharmDebugEggPath'):
+      pydevdDirSaved = settings.value('Developer/PyCharmDebugEggPath')
+      if pydevdDirSaved == pydevdDir:
+        return
+    settings.setValue('Developer/PyCharmDebugEggPath',pydevdDir)
+
   def isValidPyCharmDebugEggPath(self, pyCharmDebugEggPath):
     import os.path
     # Check if file
@@ -148,152 +382,40 @@ class PyDevRemoteDebugWidget(ScriptedLoadableModuleWidget):
       if self.isValidPyCharmDebugEggPath(pyCharmDebugEggPath):
         # found a good value in registry
         return pyCharmDebugEggPath
-    
+
     # Not found
     return ''
 
-  def isCurrentSettingValid(self):
-    if not self.getDebugger():
-      return False
-    if self.getDebugger()=="Eclipse" and self.isValidPydevdDir(self.pydevdDirSelector.currentPath):
-      return True
-    if self.getDebugger()=="PyCharm" and self.isValidPyCharmDebugEggPath(self.pyCharmDebugEggPathSelector.currentPath):
-      return True
-    return False
-    
-  def setup(self):
-
-    # Do not show reload&test in developer mode, as debugger is mostly used by developers
-    # but they are not interested in debugging this module.
-    # ScriptedLoadableModuleWidget.setup(self)
-
-    # Instantiate and connect widgets ...
-    
-    self.portNumber = 5678
-    
-    # Settings Area
-    self.settingsCollapsibleButton = ctk.ctkCollapsibleButton()
-    self.settingsCollapsibleButton.text = "Settings"
-    self.settingsCollapsibleButton.collapsed = True
-    self.layout.addWidget(self.settingsCollapsibleButton)
-    settingsFormLayout = qt.QFormLayout(self.settingsCollapsibleButton)
-    
-    # Debugger selector
-    self.debuggerSelector = qt.QComboBox()
-    self.debuggerSelector.toolTip = "Chose debugger server."
+  def getPydevdPath(self):
     debugger = self.getDebugger()
-    self.debuggerSelector.addItem("Eclipse")
-    self.debuggerSelector.addItem("PyCharm")
     if debugger=='Eclipse':
-      self.debuggerSelector.currentIndex = 0
+      return self.getEclipsePydevdDir()
     elif debugger=='PyCharm':
-      self.debuggerSelector.currentIndex = 1
+      return self.getPyCharmDebugEggPath()
     else:
-      self.debuggerSelector.currentIndex = -1
-    settingsFormLayout.addRow("Debugger: ", self.debuggerSelector)
-    self.debuggerSelector.connect('currentIndexChanged(int)', self.onDebuggerSelected)
-    
-    # pydevd.py path selector
-    pydevdDir=self.getEclipsePydevdDir(enableAutoDetect=(debugger=='Eclipse'))
-    self.pydevdDirSelector = ctk.ctkPathLineEdit()
-    self.pydevdDirSelector.setCurrentPath(pydevdDir)
-    self.pydevdDirSelector.filters=self.pydevdDirSelector.Dirs
-    self.pydevdDirSelector.setMaximumWidth(300)
-    self.pydevdDirSelector.setToolTip("Set the path to pydevd.py. It is in the eclipse folder within plugins/...pydev.../pysrc.")
-    settingsFormLayout.addRow("Eclipse pydevd.py directory:", self.pydevdDirSelector)
+      return ''
 
-    # pycharm-debug.egg path selector
-    pyCharmDebugEggPathSelector=self.getPyCharmDebugEggPath(enableAutoDetect=(debugger=='PyCharm'))
-    self.pyCharmDebugEggPathSelector = ctk.ctkPathLineEdit()
-    self.pyCharmDebugEggPathSelector.setCurrentPath(pyCharmDebugEggPathSelector)
-    self.pyCharmDebugEggPathSelector.nameFilters=['pycharm-debug.egg']
-    self.pyCharmDebugEggPathSelector.setMaximumWidth(300)
-    self.pyCharmDebugEggPathSelector.setToolTip("Set the path to pycharm-debug.egg . It is in the .../PyCharm/debug-eggs folder.")
-    settingsFormLayout.addRow("PyCharm pycharm-debug.egg path:", self.pyCharmDebugEggPathSelector)
-
-    if not self.isCurrentSettingValid():
-      self.settingsCollapsibleButton.collapsed = False
-    
-    # Connection Area
-    connectionCollapsibleButton = ctk.ctkCollapsibleButton()
-    connectionCollapsibleButton.text = "Connection"
-    connectionCollapsibleButton.collapsed = False
-    self.layout.addWidget(connectionCollapsibleButton)
-    connectionFormLayout = qt.QFormLayout(connectionCollapsibleButton)
-    # Connect Button
-    self.connectButton = qt.QPushButton("Connect to debug server")
-    self.connectButton.toolTip = "Connect to remote debug server"
-    self.connectButton.setAutoFillBackground(True)
-    self.connectButton.setStyleSheet("background-color: rgb(150, 255, 150); color: rgb(0, 0, 0)");
-    connectionFormLayout.addRow(self.connectButton)
-
-    # Connections
-    self.connectButton.connect('clicked(bool)', self.onConnect)
-
-    # Add vertical spacer
-    self.layout.addStretch(1)
-    
-    self.onDebuggerSelected()
-
-  def cleanup(self):
-    pass
-
-  def onDebuggerSelected(self):
-  
-    self.saveDebugger(self.debuggerSelector.currentText)
-
-    if self.debuggerSelector.currentText=='Eclipse':
-      self.connectButton.text = "Connect to Eclipse debugger"
-      self.connectButton.toolTip = "Connect to PyDev remote debug server"
-      self.pydevdDirSelector.enabled = True
-      self.pyCharmDebugEggPathSelector.enabled = False
-      # Auto-detect path
-      if not self.pydevdDirSelector.currentPath:
-        pydevdDir=self.getEclipsePydevdDir(enableAutoDetect=True)
-        if pydevdDir:
-          self.pydevdDirSelector.setCurrentPath(pydevdDir)
-    elif self.debuggerSelector.currentText=='PyCharm':
-      self.connectButton.text = "Connect to PyCharm debugger"
-      self.connectButton.toolTip = "Connect to PyCharm remote debug server"
-      self.pydevdDirSelector.enabled = False
-      self.pyCharmDebugEggPathSelector.enabled = True
-      # Auto-detect path
-      if not self.pyCharmDebugEggPathSelector.currentPath:
-        eggDir=self.getPyCharmDebugEggPath(enableAutoDetect=True)
-        if eggDir:
-          self.pyCharmDebugEggPathSelector.setCurrentPath(eggDir)
-    else:
-      self.pydevdDirSelector.enabled = False
-      self.pyCharmDebugEggPathSelector.enabled = False
-    
-  def onConnect(self):
-  
-    if self.debuggerSelector.currentText=='Eclipse':
-      pydevdDir=self.pydevdDirSelector.currentPath
-      # Verify path
-      if not self.isValidPydevdDir(pydevdDir):
-        self.settingsCollapsibleButton.collapsed = False
-        qt.QMessageBox.warning(slicer.util.mainWindow(),
-          "Connect to PyDev", 'Please set the correct path to pydevd.py in the settings panel')
-        return
-      self.savePydevdDir(pydevdDir)
-    elif self.debuggerSelector.currentText=='PyCharm':
-      pydevdDir=self.pyCharmDebugEggPathSelector.currentPath
-      # Verify path
-      if not self.isValidPyCharmDebugEggPath(pydevdDir):
-        self.settingsCollapsibleButton.collapsed = False
-        qt.QMessageBox.warning(slicer.util.mainWindow(),
-          "Connect to PyCharm", 'Please set the correct path to PyCharm debug egg file in the settings panel')
-        return
-      self.savePyCharmDebugEggPath(pydevdDir)
-    else:
-      self.settingsCollapsibleButton.collapsed = False
-      qt.QMessageBox.warning(slicer.util.mainWindow(),
-          "Connect to Python remote debug server", 'Please select a debugger in the settings panel')
-      return
-    
+  def updatePydevdPath(self):
     import sys
-    sys.path.insert(0,pydevdDir)
+    pydevdPath = self.getPydevdPath()
+    if not pydevdPath:
+      return False
+    if sys.path[0]!=pydevdPath:
+      sys.path.insert(0,pydevdPath)
+    return True
+
+  def isConnected(self):
+    if not self.updatePydevdPath():
+      return False
+    try:
+      import pydevd
+    except ImportError:
+      return False
+    return pydevd.connected
+
+  def connect(self):
+
+    self.updatePydevdPath()
     import pydevd
 
     # Return if already connected
@@ -301,7 +423,7 @@ class PyDevRemoteDebugWidget(ScriptedLoadableModuleWidget):
       qt.QMessageBox.warning(slicer.util.mainWindow(),
       "Connect to PyDev remote debug server", 'You are already connected to the remote debugger. If the connection is broken (e.g., because the server terminated the connection) then you need to restart Slicer to be able to connect again.')
       return
-      
+
     # Show a dialog that explains that Slicer will hang
     self.info = qt.QDialog()
     self.info.setModal(False)
@@ -312,8 +434,8 @@ class PyDevRemoteDebugWidget(ScriptedLoadableModuleWidget):
     self.info.show()
     self.info.repaint()
     qt.QTimer.singleShot(2000, self.onConnectionComplete)
-    
-    # Connect to the debugger        
+
+    # Connect to the debugger
     try:
       pydevd.settrace('localhost', port=self.portNumber, stdoutToServer=True, stderrToServer=True, suspend=False)
     except Exception, e:
@@ -322,16 +444,74 @@ class PyDevRemoteDebugWidget(ScriptedLoadableModuleWidget):
       traceback.print_exc()
       qt.QMessageBox.warning(slicer.util.mainWindow(),
           "Connect to PyDev remote debug server", 'An error occurred while trying to connect to PyDev remote debugger. Make sure he pydev server is started.\n\n' + str(e))
+      if self.connectionCompleteCallback:
+        self.connectionCompleteCallback(False)
+      return
 
-    # #########################################
-    # Connected to remote debug server
-    ###########################################
     logging.debug("Connected to remote debug server")
 
   def onConnectionComplete(self):
     import pydevd
-    if pydevd.connected:
-      self.connectButton.text = "Connected to debug server"
-    else:
-      self.connectButton.text = "Connect to debug server"
     self.info.hide()
+    if pydevd.connected:
+      # successful connection
+      if self.enableDebuggerAutoConnectAfterSuccessfulConnection:
+        self.saveDebuggerAutoConnect(True)
+        self.enableDebuggerAutoConnectAfterSuccessfulConnection = False
+
+    if self.connectionCompleteCallback:
+      self.connectionCompleteCallback(pydevd.connected)
+
+class PyDevRemoteDebugTest(ScriptedLoadableModuleTest):
+  """
+  This is the test case for your scripted module.
+  Uses ScriptedLoadableModuleTest base class, available at:
+  https://github.com/Slicer/Slicer/blob/master/Base/Python/slicer/ScriptedLoadableModule.py
+  """
+
+  def setUp(self):
+    """ Do whatever is needed to reset the state - typically a scene clear will be enough.
+    """
+    slicer.mrmlScene.Clear(0)
+
+  def runTest(self):
+    """Run as few or as many tests as needed here.
+    """
+    self.setUp()
+    self.test_PyDevRemoteDebug1()
+
+  def test_PyDevRemoteDebug1(self):
+    """ Ideally you should have several levels of tests.  At the lowest level
+    tests should exercise the functionality of the logic with different inputs
+    (both valid and invalid).  At higher levels your tests should emulate the
+    way the user would interact with your code and confirm that it still works
+    the way you intended.
+    One of the most important features of the tests is that it should alert other
+    developers when their changes will have an impact on the behavior of your
+    module.  For example, if a developer removes a feature that you depend on,
+    your test should break so they know that the feature is needed.
+    """
+
+    self.delayDisplay("Starting the test")
+    #
+    # first, get some data
+    #
+    import urllib
+    downloads = (
+        ('http://slicer.kitware.com/midas3/download?items=5767', 'FA.nrrd', slicer.util.loadVolume),
+        )
+
+    for url,name,loader in downloads:
+      filePath = slicer.app.temporaryPath + '/' + name
+      if not os.path.exists(filePath) or os.stat(filePath).st_size == 0:
+        logging.info('Requesting download %s from %s...\n' % (name, url))
+        urllib.urlretrieve(url, filePath)
+      if loader:
+        logging.info('Loading %s...' % (name,))
+        loader(filePath)
+    self.delayDisplay('Finished with download and loading')
+
+    volumeNode = slicer.util.getNode(pattern="FA")
+    logic = PyDevRemoteDebugLogic()
+    self.assertTrue( logic.hasImageData(volumeNode) )
+    self.delayDisplay('Test passed!')
