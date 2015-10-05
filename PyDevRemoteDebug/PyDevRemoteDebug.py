@@ -119,15 +119,18 @@ class PyDevRemoteDebugWidget(ScriptedLoadableModuleWidget):
 
     # Auto-connect button (only show after a successful connection to make sure
     # Slicer does not hang on startup due to failed attempt to connect to debugger)
-    connected = self.logic.isConnected()
     self.autoConnectCheckBox = qt.QCheckBox()
-    self.autoConnectCheckBox.visible = connected
+    self.autoConnectCheckBox.visible = False
     self.autoConnectCheckBox.checked = self.logic.getDebuggerAutoConnect()
     self.autoConnectCheckBox.setToolTip("If checked, Slicer will attempt to connect to the remote debugger on startup.")
     self.autoConnectCheckBoxLabel = qt.QLabel("Auto-connect on next application startup:")
-    self.autoConnectCheckBoxLabel.visible = connected
+    self.autoConnectCheckBoxLabel.visible = False
     connectionFormLayout.addRow(self.autoConnectCheckBoxLabel, self.autoConnectCheckBox)
 
+    if self.logic.isConnected():
+      # already connected
+      self.onConnectionComplete(True)
+    
     # Connections
     self.connectButton.connect('clicked(bool)', self.onConnect)
     self.autoConnectCheckBox.connect('toggled(bool)', self.onAutoConnectChanged)
@@ -144,9 +147,12 @@ class PyDevRemoteDebugWidget(ScriptedLoadableModuleWidget):
   
     self.logic.saveDebugger(self.debuggerSelector.currentText)
 
+    connected = self.logic.isConnected()
+
     if self.debuggerSelector.currentText=='Eclipse':
-      self.connectButton.text = "Connect to Eclipse debugger"
-      self.connectButton.toolTip = "Connect to PyDev remote debug server"
+      if not connected:
+        self.connectButton.text = "Connect to Eclipse debugger"
+        self.connectButton.toolTip = "Connect to PyDev remote debug server"
       self.pydevdDirSelector.enabled = True
       self.pyCharmDebugEggPathSelector.enabled = False
       # Auto-detect path
@@ -155,8 +161,9 @@ class PyDevRemoteDebugWidget(ScriptedLoadableModuleWidget):
         if pydevdDir:
           self.pydevdDirSelector.setCurrentPath(pydevdDir)
     elif self.debuggerSelector.currentText=='PyCharm':
-      self.connectButton.text = "Connect to PyCharm debugger"
-      self.connectButton.toolTip = "Connect to PyCharm remote debug server"
+      if not connected:
+        self.connectButton.text = "Connect to PyCharm debugger"
+        self.connectButton.toolTip = "Connect to PyCharm remote debug server"
       self.pydevdDirSelector.enabled = False
       self.pyCharmDebugEggPathSelector.enabled = True
       # Auto-detect path
@@ -249,6 +256,10 @@ class PyDevRemoteDebugLogic(ScriptedLoadableModuleLogic):
 
   def onDebuggerAutoConnect(self):
     if not self.getDebuggerAutoConnect():
+      # auto-connect is disabled
+      return
+    if self.isConnected():
+      # already connected
       return
     logging.debug("Auto-connect to Python remote debug server")
     # Disable auto-connect to prevent hanging Slicer on every startup in case there is no debugger available anymore
@@ -493,25 +504,15 @@ class PyDevRemoteDebugTest(ScriptedLoadableModuleTest):
     """
 
     self.delayDisplay("Starting the test")
-    #
-    # first, get some data
-    #
-    import urllib
-    downloads = (
-        ('http://slicer.kitware.com/midas3/download?items=5767', 'FA.nrrd', slicer.util.loadVolume),
-        )
-
-    for url,name,loader in downloads:
-      filePath = slicer.app.temporaryPath + '/' + name
-      if not os.path.exists(filePath) or os.stat(filePath).st_size == 0:
-        logging.info('Requesting download %s from %s...\n' % (name, url))
-        urllib.urlretrieve(url, filePath)
-      if loader:
-        logging.info('Loading %s...' % (name,))
-        loader(filePath)
-    self.delayDisplay('Finished with download and loading')
-
-    volumeNode = slicer.util.getNode(pattern="FA")
-    logic = PyDevRemoteDebugLogic()
-    self.assertTrue( logic.hasImageData(volumeNode) )
+    
+    # Just call a few basic methods that don't change any settings
+    logic = PyDevRemoteDebugLogic()    
+    logic.getDebuggerAutoConnect()
+    logic.getDebugger()
+    logic.getEclipsePydevdDir()
+    logic.getPyCharmDebugEggPath()
+    logic.getPydevdPath()
+    logic.updatePydevdPath()
+    logic.isConnected()
+    
     self.delayDisplay('Test passed!')
