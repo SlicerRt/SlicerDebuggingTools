@@ -55,7 +55,7 @@ class PyDevRemoteDebugWidget(ScriptedLoadableModuleWidget):
 
     # Do not show reload&test in developer mode, as debugger is mostly used by developers
     # but they are not interested in debugging this module.
-    ScriptedLoadableModuleWidget.setup(self)
+    # ScriptedLoadableModuleWidget.setup(self)
 
     # Instantiate and connect widgets ...
 
