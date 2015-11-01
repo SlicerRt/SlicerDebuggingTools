@@ -100,6 +100,13 @@ class PyDevRemoteDebugWidget(ScriptedLoadableModuleWidget):
     self.pyCharmDebugEggPathSelector.setToolTip("Set the path to pycharm-debug.egg . It is in the .../PyCharm/debug-eggs folder.")
     settingsFormLayout.addRow("PyCharm pycharm-debug.egg path:", self.pyCharmDebugEggPathSelector)
 
+    self.portInputSpinBox = qt.QSpinBox()
+    self.portInputSpinBox.minimum = 0
+    self.portInputSpinBox.maximum = 65535
+    portNumber=self.logic.getPortNumber()
+    self.portInputSpinBox.setValue(int(portNumber))
+    settingsFormLayout.addRow("Port:", self.portInputSpinBox)
+
     if not self.isCurrentSettingValid():
       self.settingsCollapsibleButton.collapsed = False
     
@@ -214,6 +221,9 @@ class PyDevRemoteDebugWidget(ScriptedLoadableModuleWidget):
       self.settingsCollapsibleButton.collapsed = False
       return
 
+    portNumber = self.portInputSpinBox.value
+    self.logic.savePortNumber(portNumber)
+
     self.logic.connectionCompleteCallback = self.onConnectionComplete
     self.logic.connect()
 
@@ -241,8 +251,6 @@ class PyDevRemoteDebugLogic(ScriptedLoadableModuleLogic):
 
   def __init__(self):
     ScriptedLoadableModuleLogic.__init__(self)
-
-    self.portNumber = 5678
 
     # This function is called when connection request is completed. It takes a single bool argument,
     # which is set to True if the connection is established.
@@ -288,6 +296,13 @@ class PyDevRemoteDebugLogic(ScriptedLoadableModuleLogic):
       if debugger=="Eclipse" or debugger=="PyCharm":
         return debugger
     return ''
+
+  def getPortNumber(self):
+    settings = qt.QSettings()
+    if settings.contains('Developer/PydevdPortNumber'):
+      port = settings.value('Developer/PydevdPortNumber')
+      return int(port)
+    return 5678
 
   def saveDebugger(self, debugger):
     # don't save it if already saved
@@ -352,6 +367,15 @@ class PyDevRemoteDebugLogic(ScriptedLoadableModuleLogic):
       if pydevdDirSaved == pydevdDir:
         return
     settings.setValue('Developer/PyCharmDebugEggPath',pydevdDir)
+
+  def savePortNumber(self, portNumber):
+    # don't save it if already saved
+    settings = qt.QSettings()
+    if settings.contains('Developer/PydevdPortNumber'):
+      portNumberSaved = settings.value('Developer/PydevdPortNumber')
+      if portNumberSaved == portNumber:
+        return
+    settings.setValue('Developer/PydevdPortNumber',portNumber)
 
   def isValidPyCharmDebugEggPath(self, pyCharmDebugEggPath):
     import os.path
@@ -427,6 +451,7 @@ class PyDevRemoteDebugLogic(ScriptedLoadableModuleLogic):
   def connect(self):
 
     self.updatePydevdPath()
+    port = self.getPortNumber()
     import pydevd
 
     # Return if already connected
@@ -440,7 +465,7 @@ class PyDevRemoteDebugLogic(ScriptedLoadableModuleLogic):
     self.info.setModal(False)
     self.infoLayout = qt.QVBoxLayout()
     self.info.setLayout(self.infoLayout)
-    self.label = qt.QLabel("Connecting to remote debug server at port {0}...\nSlicer is paused until {1} accepts the connection.".format(self.portNumber,self.getDebugger()),self.info)
+    self.label = qt.QLabel("Connecting to remote debug server at port {0}...\nSlicer is paused until {1} accepts the connection.".format(port,self.getDebugger()),self.info)
     self.infoLayout.addWidget(self.label)
     self.info.show()
     self.info.repaint()
@@ -448,8 +473,8 @@ class PyDevRemoteDebugLogic(ScriptedLoadableModuleLogic):
 
     # Connect to the debugger
     try:
-      pydevd.settrace('localhost', port=self.portNumber, stdoutToServer=True, stderrToServer=True, suspend=False)
-    except Exception, e:
+      pydevd.settrace('localhost', port=port, stdoutToServer=True, stderrToServer=True, suspend=False)
+    except (Exception, SystemExit), e:
       self.info.hide()
       import traceback
       traceback.print_exc()
@@ -512,7 +537,8 @@ class PyDevRemoteDebugTest(ScriptedLoadableModuleTest):
     logic.getEclipsePydevdDir()
     logic.getPyCharmDebugEggPath()
     logic.getPydevdPath()
+    logic.getPortNumber()
     logic.updatePydevdPath()
     logic.isConnected()
-    
+
     self.delayDisplay('Test passed!')
