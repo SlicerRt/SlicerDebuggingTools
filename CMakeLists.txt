@@ -20,6 +20,7 @@ include(${Slicer_USE_FILE})
 # Extension modules
 add_subdirectory(PyDevRemoteDebug)
 add_subdirectory(NodeModifiedStatistics)
+add_subdirectory(NodeInfo)
 ## NEXT_MODULE
 
 #-----------------------------------------------------------------------------
