@@ -113,6 +113,7 @@ class NodeInfoWidget(ScriptedLoadableModuleWidget):
       self.nodeIdLabel.text = node.GetID()
       self.nodeTypeLabel.text = node.GetClassName()
       self.referencedNodeSelector.clear()
+      referencedNodeIds = set()
       for roleIndex in range(node.GetNumberOfNodeReferenceRoles()):
         roleName = node.GetNthNodeReferenceRole(roleIndex)
         numberOfReferencedNodes = node.GetNumberOfNodeReferences(roleName)
@@ -123,24 +124,34 @@ class NodeInfoWidget(ScriptedLoadableModuleWidget):
           else:
             label = "{0}: {1} ({2})".format(roleName, referencedNode.GetName(), referencedNode.GetID())
           self.referencedNodeSelector.addItem(label, referencedNode.GetID())
-      self.referencedNodeSelectButton.setEnabled(self.referencedNodeSelector.count > 0)
+          referencedNodeIds.add(referencedNode.GetID())
       self.referencingNodeSelector.clear()
       numberOfNodeReferences = slicer.mrmlScene.GetNumberOfNodeReferences()
       for nodeReferenceIndex in range(numberOfNodeReferences):
-        if slicer.mrmlScene.GetNthReferencedID(nodeReferenceIndex) != node.GetID():
-          continue
-        referencingNode = slicer.mrmlScene.GetNthReferencingNode(nodeReferenceIndex)
-        label = "{0} ({1})".format(referencingNode.GetName(), referencingNode.GetID())
-        self.referencingNodeSelector.addItem(label, referencingNode.GetID())
-      self.referencingNodeSelectButton.setEnabled(self.referencingNodeSelector.count > 0)
+        if slicer.mrmlScene.GetNthReferencingNode(nodeReferenceIndex) == node:
+          # referenced node
+          # Before node reference infrastructure in vtkMRMLNode was introduced, nodes used
+          # hand-crafted code to implement references. Some nodes still use the old mechanism.
+          # If we find referenced nodes that are not yet added to the combobox, we add them.
+          referencedNodeId = slicer.mrmlScene.GetNthReferencedID(nodeReferenceIndex)
+          if referencedNodeId in referencedNodeIds:
+            continue
+          label = "{0} ({1})".format(slicer.mrmlScene.GetNodeByID(referencedNodeId).GetName(), referencedNodeId)
+          self.referencedNodeSelector.addItem(label, referencedNodeId)
+          referencedNodeIds.add(referencedNodeId)
+        if slicer.mrmlScene.GetNthReferencedID(nodeReferenceIndex) == node.GetID():
+          # referencing node
+          referencingNode = slicer.mrmlScene.GetNthReferencingNode(nodeReferenceIndex)
+          label = "{0} ({1})".format(referencingNode.GetName(), referencingNode.GetID())
+          self.referencingNodeSelector.addItem(label, referencingNode.GetID())
     else:
       self.nodeNameLabel.text = ""
       self.nodeIdLabel.text = ""
       self.nodeTypeLabel.text = ""
       self.referencedNodeSelector.clear()
       self.referencedNodeSelectButton.setEnabled(False)
-      self.referencingNodeSelector.clear()
-      self.referencingNodeSelectButton.setEnabled(False)
+    self.referencedNodeSelectButton.setEnabled(self.referencedNodeSelector.count > 0)
+    self.referencingNodeSelectButton.setEnabled(self.referencingNodeSelector.count > 0)
 
   def onShowInfoClicked(self):
     logic = NodeInfoLogic()
