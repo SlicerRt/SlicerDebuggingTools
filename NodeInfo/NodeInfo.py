@@ -198,6 +198,9 @@ class NodeInfoWidget(ScriptedLoadableModuleWidget):
     pm.executeString(self.getNodeVariableName()+"=slicer.mrmlScene.GetNodeByID('"+currentNode.GetID()+"')")
     pm.executeString("print('Created variable: " + currentNode.GetName() + " (" + currentNode.GetID()
       + ") -> " + self.getNodeVariableName() + "')")
+    # Switch focus to the Python console so that the user can start typing immediately
+    mw=slicer.util.mainWindow()
+    mw.onPythonConsoleToggled(True)
 
     
 #
