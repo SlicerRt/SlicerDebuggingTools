@@ -90,8 +90,13 @@ class NodeInfoWidget(ScriptedLoadableModuleWidget):
     self.showInfoButton = qt.QPushButton("Show node information window")
     quickInfoFormLayout.addRow(self.showInfoButton)
 
+    self.createVariableButtonBaseText = "Create variable in Python console"
+    self.createVariableButton = qt.QPushButton(self.createVariableButtonBaseText)
+    quickInfoFormLayout.addRow(self.createVariableButton)
+    
     # connections
     self.showInfoButton.connect('clicked(bool)', self.onShowInfoClicked)
+    self.createVariableButton.connect('clicked(bool)', self.onCreateVariableClicked)
     self.showHiddenNodesCheckBox.connect('stateChanged(int)', self.onShowHiddenNodesChecked)
     self.inputSelector.connect('currentNodeChanged(vtkMRMLNode*)', self.onSelectNode)
     self.referencedNodeSelectButton.connect('clicked(bool)', self.onSelectReferencedNodeClicked)
@@ -112,6 +117,8 @@ class NodeInfoWidget(ScriptedLoadableModuleWidget):
       self.nodeNameLabel.text = node.GetName()
       self.nodeIdLabel.text = node.GetID()
       self.nodeTypeLabel.text = node.GetClassName()
+      self.createVariableButton.text = self.createVariableButtonBaseText + ": " + self.getNodeVariableName()
+      self.createVariableButton.setEnabled(True)
       self.referencedNodeSelector.clear()
       referencedNodeIds = set()
       for roleIndex in range(node.GetNumberOfNodeReferenceRoles()):
@@ -150,6 +157,7 @@ class NodeInfoWidget(ScriptedLoadableModuleWidget):
       self.nodeTypeLabel.text = ""
       self.referencedNodeSelector.clear()
       self.referencedNodeSelectButton.setEnabled(False)
+      self.createVariableButton.setEnabled(False)
     self.referencedNodeSelectButton.setEnabled(self.referencedNodeSelector.count > 0)
     self.referencingNodeSelectButton.setEnabled(self.referencingNodeSelector.count > 0)
 
@@ -175,7 +183,23 @@ class NodeInfoWidget(ScriptedLoadableModuleWidget):
 
   def onShowHiddenNodesChecked(self, state):
     self.inputSelector.showHidden = state
-   
+
+  def getNodeVariableName(self):
+    nodeName = self.inputSelector.currentNode().GetName()
+    varName = nodeName.lower()
+    # remove special characters (space, dot, etc)
+    import re
+    varName = re.sub(r'\W+', '', varName)
+    return varName
+    
+  def onCreateVariableClicked(self):
+    pm=slicer.app.pythonManager()
+    currentNode = self.inputSelector.currentNode()
+    pm.executeString(self.getNodeVariableName()+"=slicer.mrmlScene.GetNodeByID('"+currentNode.GetID()+"')")
+    pm.executeString("print('Created variable: " + currentNode.GetName() + " (" + currentNode.GetID()
+      + ") -> " + self.getNodeVariableName() + "')")
+
+    
 #
 # NodeInfoLogic
 #
