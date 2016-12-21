@@ -479,7 +479,7 @@ class PyDevRemoteDebugLogic(ScriptedLoadableModuleLogic):
       import traceback
       traceback.print_exc()
       qt.QMessageBox.warning(slicer.util.mainWindow(),
-          "Connect to PyDev remote debug server", 'An error occurred while trying to connect to PyDev remote debugger. Make sure he pydev server is started.\n\n' + str(e))
+          "Connect to PyDev remote debug server", 'An error occurred while trying to connect to PyDev remote debugger. Make sure pydev server is started.\n\n' + str(e))
       if self.connectionCompleteCallback:
         self.connectionCompleteCallback(False)
       return
