@@ -412,8 +412,9 @@ class PyDevRemoteDebugLogic(ScriptedLoadableModuleLogic):
         # PyCharm not found in registry
         return ''
       # remove bin\pycharm and anything after that
-      pyCharmPath = value[:value.find("bin\pycharm.exe")]
-      pyCharmDebugEggPath = pyCharmPath+"\\debug-eggs\\pycharm-debug.egg"
+      pyCharmPath = value[:value.find(r"\bin\pycharm.exe")]
+      pyCharmPath = value[:value.find(r"\bin\pycharm64.exe")]
+      pyCharmDebugEggPath = pyCharmPath+r"\debug-eggs\pycharm-debug.egg"
       if self.isValidPyCharmDebugEggPath(pyCharmDebugEggPath):
         # found a good value in registry
         return pyCharmDebugEggPath
