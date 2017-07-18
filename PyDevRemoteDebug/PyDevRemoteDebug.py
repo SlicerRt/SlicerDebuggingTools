@@ -55,7 +55,7 @@ class PyDevRemoteDebugWidget(ScriptedLoadableModuleWidget):
 
     # Do not show reload&test in developer mode, as debugger is mostly used by developers
     # but they are not interested in debugging this module.
-    # ScriptedLoadableModuleWidget.setup(self)
+    ScriptedLoadableModuleWidget.setup(self)
 
     # Instantiate and connect widgets ...
 
@@ -73,10 +73,13 @@ class PyDevRemoteDebugWidget(ScriptedLoadableModuleWidget):
     debugger = self.logic.getDebugger()
     self.debuggerSelector.addItem("Eclipse")
     self.debuggerSelector.addItem("PyCharm")
+    self.debuggerSelector.addItem("VisualStudio")
     if debugger=='Eclipse':
       self.debuggerSelector.currentIndex = 0
     elif debugger=='PyCharm':
       self.debuggerSelector.currentIndex = 1
+    elif debugger=='VisualStudio':
+      self.debuggerSelector.currentIndex = 2
     else:
       self.debuggerSelector.currentIndex = -1
     settingsFormLayout.addRow("Debugger: ", self.debuggerSelector)
@@ -89,17 +92,20 @@ class PyDevRemoteDebugWidget(ScriptedLoadableModuleWidget):
     self.pydevdDirSelector.filters=self.pydevdDirSelector.Dirs
     self.pydevdDirSelector.setMaximumWidth(300)
     self.pydevdDirSelector.setToolTip("Set the path to pydevd.py. It is in the eclipse folder within plugins/...pydev.../pysrc.")
-    settingsFormLayout.addRow("Eclipse pydevd.py directory:", self.pydevdDirSelector)
+    self.pydevdDirLabel = qt.QLabel("Eclipse pydevd.py directory:")
+    settingsFormLayout.addRow(self.pydevdDirLabel, self.pydevdDirSelector)
 
     # pycharm-debug.egg path selector
-    pyCharmDebugEggPathSelector=self.logic.getPyCharmDebugEggPath(enableAutoDetect=(debugger=='PyCharm'))
+    pyCharmDebugEggPath=self.logic.getPyCharmDebugEggPath(enableAutoDetect=(debugger=='PyCharm'))
     self.pyCharmDebugEggPathSelector = ctk.ctkPathLineEdit()
-    self.pyCharmDebugEggPathSelector.setCurrentPath(pyCharmDebugEggPathSelector)
+    self.pyCharmDebugEggPathSelector.setCurrentPath(pyCharmDebugEggPath)
     self.pyCharmDebugEggPathSelector.nameFilters=['pycharm-debug.egg']
     self.pyCharmDebugEggPathSelector.setMaximumWidth(300)
     self.pyCharmDebugEggPathSelector.setToolTip("Set the path to pycharm-debug.egg . It is in the .../PyCharm/debug-eggs folder.")
-    settingsFormLayout.addRow("PyCharm pycharm-debug.egg path:", self.pyCharmDebugEggPathSelector)
+    self.pyCharmDebugEggPathLabel = qt.QLabel("PyCharm pycharm-debug.egg path:")
+    settingsFormLayout.addRow(self.pyCharmDebugEggPathLabel, self.pyCharmDebugEggPathSelector)
 
+    # port number
     self.portInputSpinBox = qt.QSpinBox()
     self.portInputSpinBox.minimum = 0
     self.portInputSpinBox.maximum = 65535
@@ -107,6 +113,15 @@ class PyDevRemoteDebugWidget(ScriptedLoadableModuleWidget):
     self.portInputSpinBox.setValue(int(portNumber))
     settingsFormLayout.addRow("Port:", self.portInputSpinBox)
 
+    # ptvsd connection secret word
+    secret=self.logic.getSecret()
+    self.secretEditor = qt.QLineEdit()
+    self.secretEditor.text = secret
+    self.secretEditor.setToolTip("Set the secret word for VisualStudio remote debugger.")
+    self.secretLabel = qt.QLabel("Secret:")
+    settingsFormLayout.addRow(self.secretLabel, self.secretEditor)
+    
+    
     if not self.isCurrentSettingValid():
       self.settingsCollapsibleButton.collapsed = False
     
@@ -156,31 +171,39 @@ class PyDevRemoteDebugWidget(ScriptedLoadableModuleWidget):
 
     connected = self.logic.isConnected()
 
-    if self.debuggerSelector.currentText=='Eclipse':
+    portNumber=self.logic.getPortNumber()
+    self.portInputSpinBox.setValue(int(portNumber))
+    
+    debugger = self.debuggerSelector.currentText
+    if debugger=='Eclipse':
       if not connected:
         self.connectButton.text = "Connect to Eclipse debugger"
         self.connectButton.toolTip = "Connect to PyDev remote debug server"
-      self.pydevdDirSelector.enabled = True
-      self.pyCharmDebugEggPathSelector.enabled = False
       # Auto-detect path
       if not self.pydevdDirSelector.currentPath:
         pydevdDir=self.logic.getEclipsePydevdDir(enableAutoDetect=True)
         if pydevdDir:
           self.pydevdDirSelector.setCurrentPath(pydevdDir)
-    elif self.debuggerSelector.currentText=='PyCharm':
+    elif debugger=='PyCharm':
       if not connected:
         self.connectButton.text = "Connect to PyCharm debugger"
         self.connectButton.toolTip = "Connect to PyCharm remote debug server"
-      self.pydevdDirSelector.enabled = False
-      self.pyCharmDebugEggPathSelector.enabled = True
       # Auto-detect path
       if not self.pyCharmDebugEggPathSelector.currentPath:
         eggDir=self.logic.getPyCharmDebugEggPath(enableAutoDetect=True)
         if eggDir:
           self.pyCharmDebugEggPathSelector.setCurrentPath(eggDir)
-    else:
-      self.pydevdDirSelector.enabled = False
-      self.pyCharmDebugEggPathSelector.enabled = False
+    elif debugger=='VisualStudio':
+      if not connected:
+        self.connectButton.text = "Connect to VisualStudio debugger"
+        self.connectButton.toolTip = "Connect to VisualStudio Python debugger. Make sure Python Tools for VisualStudio is installed (https://github.com/Microsoft/PTVS)"
+
+    self.pydevdDirSelector.visible = (debugger=="Eclipse")
+    self.pydevdDirLabel.visible = (debugger=="Eclipse")
+    self.pyCharmDebugEggPathSelector.visible = (debugger=="PyCharm")
+    self.pyCharmDebugEggPathLabel.visible = (debugger=="PyCharm")
+    self.secretEditor.visible = (debugger=="VisualStudio")
+    self.secretLabel.visible = (debugger=="VisualStudio")
 
   def isCurrentSettingValid(self):
     if not self.logic.getDebugger():
@@ -188,6 +211,8 @@ class PyDevRemoteDebugWidget(ScriptedLoadableModuleWidget):
     if self.logic.getDebugger()=="Eclipse" and self.logic.isValidPydevdDir(self.pydevdDirSelector.currentPath):
       return True
     if self.logic.getDebugger()=="PyCharm" and self.logic.isValidPyCharmDebugEggPath(self.pyCharmDebugEggPathSelector.currentPath):
+      return True
+    if self.logic.getDebugger()=="VisualStudio":
       return True
     return False
 
@@ -215,6 +240,8 @@ class PyDevRemoteDebugWidget(ScriptedLoadableModuleWidget):
         self.settingsCollapsibleButton.collapsed = False
         return
       self.logic.savePyCharmDebugEggPath(pydevdDir)
+    elif debugger=='VisualStudio':
+      self.logic.saveSecret(self.secretEditor.text)
     else:
       qt.QMessageBox.warning(slicer.util.mainWindow(),
           "Connect to Python remote debug server", 'Please select a debugger in the settings panel')
@@ -293,17 +320,29 @@ class PyDevRemoteDebugLogic(ScriptedLoadableModuleLogic):
     settings = qt.QSettings()
     if settings.contains('Developer/PythonRemoteDebugServer'):
       debugger = settings.value('Developer/PythonRemoteDebugServer')
-      if debugger=="Eclipse" or debugger=="PyCharm":
+      if debugger=="Eclipse" or debugger=="PyCharm" or debugger=="VisualStudio":
         return debugger
     return ''
 
   def getPortNumber(self):
+    if self.getDebugger() == "VisualStudio":
+      settingsKeyPrefix = 'Developer/VisualStudio'
+    else:
+      settingsKeyPrefix = 'Developer/Pydevd'
     settings = qt.QSettings()
-    if settings.contains('Developer/PydevdPortNumber'):
-      port = settings.value('Developer/PydevdPortNumber')
+    if settings.contains(settingsKeyPrefix+'PortNumber'):
+      port = settings.value(settingsKeyPrefix+'PortNumber')
       return int(port)
     return 5678
+    
+  def getSecret(self):
+    settings = qt.QSettings()
+    if settings.contains('Developer/PtvsdSecret'):
+      secret = settings.value('Developer/PtvsdSecret')
+      return secret
+    return "slicer"
 
+    
   def saveDebugger(self, debugger):
     # don't save it if already saved
     settings = qt.QSettings()
@@ -369,13 +408,30 @@ class PyDevRemoteDebugLogic(ScriptedLoadableModuleLogic):
     settings.setValue('Developer/PyCharmDebugEggPath',pydevdDir)
 
   def savePortNumber(self, portNumber):
+    if self.getDebugger() == "VisualStudio":
+      settingsKeyPrefix = 'Developer/VisualStudio'
+    else:
+      settingsKeyPrefix = 'Developer/Pydevd'
     # don't save it if already saved
     settings = qt.QSettings()
-    if settings.contains('Developer/PydevdPortNumber'):
-      portNumberSaved = settings.value('Developer/PydevdPortNumber')
+    if settings.contains(settingsKeyPrefix+'PortNumber'):
+      portNumberSaved = settings.value(settingsKeyPrefix+'PortNumber')
       if portNumberSaved == portNumber:
         return
-    settings.setValue('Developer/PydevdPortNumber',portNumber)
+    settings.setValue(settingsKeyPrefix+'PortNumber',portNumber)
+
+  def saveSecret(self, secret):
+    if self.getDebugger() == "VisualStudio":
+      settingsKeyPrefix = 'Developer/VisualStudio'
+    else:
+      settingsKeyPrefix = 'Developer/Pydevd'
+    # don't save it if already saved
+    settings = qt.QSettings()
+    if settings.contains(settingsKeyPrefix+'Secret'):
+      secretSaved = settings.value(settingsKeyPrefix+'Secret')
+      if secretSaved == secret:
+        return
+    settings.setValue(settingsKeyPrefix+'Secret',secret)
 
   def isValidPyCharmDebugEggPath(self, pyCharmDebugEggPath):
     import os.path
@@ -441,64 +497,84 @@ class PyDevRemoteDebugLogic(ScriptedLoadableModuleLogic):
     return True
 
   def isConnected(self):
-    if not self.updatePydevdPath():
-      return False
-    try:
-      import pydevd
-    except ImportError:
-      return False
-    return pydevd.connected
-
+    if self.getDebugger()=="VisualStudio":
+      try:
+        import ptvsd
+      except ImportError:
+        return False
+      return ptvsd.is_attached()
+    else:
+      if not self.updatePydevdPath():
+        return False
+      try:
+        import pydevd
+      except ImportError:
+        return False
+      return pydevd.connected
+    
   def connect(self):
 
-    self.updatePydevdPath()
-    port = self.getPortNumber()
-    import pydevd
-
-    # Return if already connected
-    if pydevd.connected:
+    # Return if already connected    
+    if self.isConnected():
       qt.QMessageBox.warning(slicer.util.mainWindow(),
       "Connect to PyDev remote debug server", 'You are already connected to the remote debugger. If the connection is broken (e.g., because the server terminated the connection) then you need to restart Slicer to be able to connect again.')
-      return
+      return False
 
     # Show a dialog that explains that Slicer will hang
     self.info = qt.QDialog()
     self.info.setModal(False)
     self.infoLayout = qt.QVBoxLayout()
     self.info.setLayout(self.infoLayout)
-    self.label = qt.QLabel("Connecting to remote debug server at port {0}...\nSlicer is paused until {1} accepts the connection.".format(port,self.getDebugger()),self.info)
+    if self.getDebugger()=="VisualStudio":
+      connectionHelp = ("Waiting for VisualStudio debugger attachment...\n\n"
+        +"To attach debugger:\n"
+        +"- In VisualStudio, open menu: Debug / Attach to process\n"
+        +"- Select Transport: 'Python remote (ptvsd)\n"
+        +"- Set Qualifier: 'tcp://{1}@localhost:{0}'\n"
+        +"- Click Refresh\n"
+        +"- Click Attach").format(self.getPortNumber(),self.getSecret())
+    else:
+      connectionHelp = "Connecting to remote debug server at port {0}...\nSlicer is paused until {1} accepts the connection.".format(self.getPortNumber(),self.getDebugger())
+    self.label = qt.QLabel(connectionHelp)
     self.infoLayout.addWidget(self.label)
     self.info.show()
     self.info.repaint()
     qt.QTimer.singleShot(2000, self.onConnectionComplete)
 
     # Connect to the debugger
-    try:
-      pydevd.settrace('localhost', port=port, stdoutToServer=True, stderrToServer=True, suspend=False)
-    except (Exception, SystemExit), e:
-      self.info.hide()
-      import traceback
-      traceback.print_exc()
-      qt.QMessageBox.warning(slicer.util.mainWindow(),
-          "Connect to PyDev remote debug server", 'An error occurred while trying to connect to PyDev remote debugger. Make sure pydev server is started.\n\n' + str(e))
-      if self.connectionCompleteCallback:
-        self.connectionCompleteCallback(False)
-      return
-
+    
+    if self.getDebugger()=="VisualStudio":
+      import ptvsd
+      ptvsd.enable_attach(address=('0.0.0.0', self.getPortNumber()), secret=self.getSecret())
+      ptvsd.wait_for_attach()
+    else:
+      try:
+        pydevd.settrace('localhost', port=self.getPortNumber(), stdoutToServer=True, stderrToServer=True, suspend=False)
+      except (Exception, SystemExit), e:
+        self.info.hide()
+        import traceback
+        traceback.print_exc()
+        qt.QMessageBox.warning(slicer.util.mainWindow(),
+            "Connect to PyDev remote debug server", 'An error occurred while trying to connect to PyDev remote debugger. Make sure pydev server is started.\n\n' + str(e))
+        if self.connectionCompleteCallback:
+          self.connectionCompleteCallback(False)
+        return False
+        
     logging.debug("Connected to remote debug server")
+    return True    
 
   def onConnectionComplete(self):
-    import pydevd
     self.info.hide()
-    if pydevd.connected:
+
+    if self.isConnected():
       # successful connection
       if self.enableDebuggerAutoConnectAfterSuccessfulConnection:
         self.saveDebuggerAutoConnect(True)
         self.enableDebuggerAutoConnectAfterSuccessfulConnection = False
 
     if self.connectionCompleteCallback:
-      self.connectionCompleteCallback(pydevd.connected)
-
+        self.connectionCompleteCallback(self.isConnected())
+    
 class PyDevRemoteDebugTest(ScriptedLoadableModuleTest):
   """
   This is the test case for your scripted module.
