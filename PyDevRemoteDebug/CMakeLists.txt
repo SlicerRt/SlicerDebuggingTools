@@ -7,6 +7,12 @@ set(MODULE_PYTHON_SCRIPTS
   )
 
 set(MODULE_PYTHON_RESOURCES
+  ptvsd/__init__.py
+  ptvsd/__main__.py
+  ptvsd/attach_server.py
+  ptvsd/visualstudio_py_debugger.py
+  ptvsd/visualstudio_py_repl.py
+  ptvsd/visualstudio_py_util.py 
   )
 
 #-----------------------------------------------------------------------------
