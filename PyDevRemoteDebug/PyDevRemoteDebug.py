@@ -549,6 +549,7 @@ class PyDevRemoteDebugLogic(ScriptedLoadableModuleLogic):
       ptvsd.wait_for_attach()
     else:
       try:
+        import pydevd
         pydevd.settrace('localhost', port=self.getPortNumber(), stdoutToServer=True, stderrToServer=True, suspend=False)
       except (Exception, SystemExit), e:
         self.info.hide()
