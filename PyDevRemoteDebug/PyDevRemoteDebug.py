@@ -314,7 +314,7 @@ class PyDevRemoteDebugLogic(ScriptedLoadableModuleLogic):
     settings = qt.QSettings()
     if self.getDebuggerAutoConnect()==autoConnect:
       return
-    settings.setValue('Developer/PythonRemoteDebugAutoConnect',autoConnect)
+    settings.setValue('Developer/PythonRemoteDebugAutoConnect','true' if autoConnect else 'false')
 
   def getDebugger(self):
     settings = qt.QSettings()
