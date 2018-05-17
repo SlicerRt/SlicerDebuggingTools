@@ -13,6 +13,13 @@ set(MODULE_PYTHON_RESOURCES
   ptvsd-2.2.2/ptvsd/visualstudio_py_debugger.py
   ptvsd-2.2.2/ptvsd/visualstudio_py_repl.py
   ptvsd-2.2.2/ptvsd/visualstudio_py_util.py
+  ptvsd-3.0.0/ptvsd/__init__.py
+  ptvsd-3.0.0/ptvsd/__main__.py
+  ptvsd-3.0.0/ptvsd/attach_server.py
+  ptvsd-3.0.0/ptvsd/visualstudio_py_debugger.py
+  ptvsd-3.0.0/ptvsd/visualstudio_py_launcher.py
+  ptvsd-3.0.0/ptvsd/visualstudio_py_repl.py
+  ptvsd-3.0.0/ptvsd/visualstudio_py_util.py
   ptvsd-3.2.1/ptvsd/__init__.py
   ptvsd-3.2.1/ptvsd/__main__.py
   ptvsd-3.2.1/ptvsd/attach_server.py

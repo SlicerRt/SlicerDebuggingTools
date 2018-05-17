@@ -75,6 +75,7 @@ class PyDevRemoteDebugWidget(ScriptedLoadableModuleWidget):
     self.debuggerSelector.addItem("PyCharm")
     self.debuggerSelector.addItem("VisualStudio 2013/2015")
     self.debuggerSelector.addItem("VisualStudio 2017")
+    self.debuggerSelector.addItem("VisualStudio Code")
     if debugger=='Eclipse':
       self.debuggerSelector.currentIndex = 0
     elif debugger=='PyCharm':
@@ -83,6 +84,8 @@ class PyDevRemoteDebugWidget(ScriptedLoadableModuleWidget):
       self.debuggerSelector.currentIndex = 2
     elif debugger=='VisualStudio 2017':
       self.debuggerSelector.currentIndex = 3
+    elif debugger=='VisualStudio Code':
+      self.debuggerSelector.currentIndex = 4
     else:
       self.debuggerSelector.currentIndex = -1
     settingsFormLayout.addRow("Debugger: ", self.debuggerSelector)
@@ -204,12 +207,16 @@ class PyDevRemoteDebugWidget(ScriptedLoadableModuleWidget):
       if not connected:
         self.connectButton.text = "Connect to VisualStudio 2017 debugger"
         self.connectButton.toolTip = "Connect to VisualStudio Python debugger. Make sure 'Python native development tools' are installed in VisualStudio / Tools / Get Tools and Features"
+    elif debugger=='VisualStudio Code':
+      if not connected:
+        self.connectButton.text = "Connect to VisualStudio Code debugger"
+        self.connectButton.toolTip = "Connect to VisualStudio Python remote debugger."
 
     self.pydevdDirSelector.visible = (debugger=="Eclipse")
     self.pydevdDirLabel.visible = (debugger=="Eclipse")
     self.pyCharmDebugEggPathSelector.visible = (debugger=="PyCharm")
     self.pyCharmDebugEggPathLabel.visible = (debugger=="PyCharm")
-    isVisualStudio = (debugger=='VisualStudio' or debugger=='VisualStudio 2013/2015' or debugger=='VisualStudio 2017')
+    isVisualStudio = (debugger=='VisualStudio' or debugger=='VisualStudio 2013/2015' or debugger=='VisualStudio 2017' or debugger=='VisualStudio Code')
     self.secretEditor.visible = isVisualStudio
     self.secretLabel.visible = isVisualStudio
 
@@ -248,7 +255,7 @@ class PyDevRemoteDebugWidget(ScriptedLoadableModuleWidget):
         self.settingsCollapsibleButton.collapsed = False
         return
       self.logic.savePyCharmDebugEggPath(pydevdDir)
-    elif (debugger=='VisualStudio' or debugger=='VisualStudio 2013/2015' or debugger=='VisualStudio 2017'):
+    elif (debugger=='VisualStudio' or debugger=='VisualStudio 2013/2015' or debugger=='VisualStudio 2017' or debugger=='VisualStudio Code'):
       self.logic.saveSecret(self.secretEditor.text)
     else:
       qt.QMessageBox.warning(slicer.util.mainWindow(),
@@ -328,13 +335,15 @@ class PyDevRemoteDebugLogic(ScriptedLoadableModuleLogic):
     settings = qt.QSettings()
     if settings.contains('Developer/PythonRemoteDebugServer'):
       debugger = settings.value('Developer/PythonRemoteDebugServer')
-      if debugger=="Eclipse" or debugger=="PyCharm" or debugger=="VisualStudio" or debugger=='VisualStudio 2013/2015' or debugger=='VisualStudio 2017':
+      if (debugger=="Eclipse" or debugger=="PyCharm"
+        or debugger=="VisualStudio" or debugger=='VisualStudio 2013/2015'
+        or debugger=='VisualStudio 2017' or debugger=='VisualStudio Code'):
         return debugger
     return ''
     
   def isDebuggerVisualStudio(self):
     debugger = self.getDebugger()
-    return (debugger == "VisualStudio" or debugger == "VisualStudio 2013/2015" or debugger == "VisualStudio 2017")
+    return (debugger == "VisualStudio" or debugger == "VisualStudio 2013/2015" or debugger == "VisualStudio 2017" or debugger == "VisualStudio Code")
 
   def getPortNumber(self):
     if self.isDebuggerVisualStudio():
@@ -512,8 +521,10 @@ class PyDevRemoteDebugLogic(ScriptedLoadableModuleLogic):
     moduleDir = os.path.dirname(__file__)
     if self.getDebugger()=="VisualStudio" or self.getDebugger()=="VisualStudio 2013/2015":
       ptvsdPath = os.path.join(moduleDir, 'ptvsd-2.2.2')
-    if self.getDebugger()=="VisualStudio 2017":
+    elif self.getDebugger()=="VisualStudio 2017":
       ptvsdPath = os.path.join(moduleDir, 'ptvsd-3.2.1')
+    elif self.getDebugger()=="VisualStudio Code":
+      ptvsdPath = os.path.join(moduleDir, 'ptvsd-3.0.0')
     import sys
     sys.path.insert(0, ptvsdPath)
     
@@ -580,6 +591,16 @@ class PyDevRemoteDebugLogic(ScriptedLoadableModuleLogic):
         +"- Set Connection target: 'tcp://{1}@localhost:{0}'\n"
         +"- Click Refresh\n"
         +"- Click Attach").format(self.getPortNumber(),self.getSecret())        
+    elif self.getDebugger()=="VisualStudio Code":
+      connectionHelp = ("Waiting for VisualStudio Code debugger attachment...\n\n"
+        +"\n"
+        +"Make sure you have configured `Python: Attach` debugging configuration:\n"
+        +'"port": {0}\n'
+        +'"secret"="{1}"\n'
+        +"\n"
+        +"To attach debugger:\n"
+        +"- In VisualStudio Code, choose debugging configuration 'Python: Attach'\n"
+        +"- Click Start Debugging").format(self.getPortNumber(),self.getSecret())        
     else:
       connectionHelp = "Connecting to remote debug server at port {0}...\nSlicer is paused until {1} accepts the connection.".format(self.getPortNumber(),self.getDebugger())
     self.label = qt.QLabel(connectionHelp)
@@ -591,7 +612,7 @@ class PyDevRemoteDebugLogic(ScriptedLoadableModuleLogic):
 
     # Connect to the debugger
     
-    if self.isDebuggerVisualStudio:
+    if self.isDebuggerVisualStudio():
       self.addPtvsdToPath()
       import ptvsd
       if not self.isCorrectVisualStudioDebuggerVersion():
