@@ -7,12 +7,20 @@ set(MODULE_PYTHON_SCRIPTS
   )
 
 set(MODULE_PYTHON_RESOURCES
-  ptvsd/__init__.py
-  ptvsd/__main__.py
-  ptvsd/attach_server.py
-  ptvsd/visualstudio_py_debugger.py
-  ptvsd/visualstudio_py_repl.py
-  ptvsd/visualstudio_py_util.py 
+  ptvsd-2.2.2/ptvsd/__init__.py
+  ptvsd-2.2.2/ptvsd/__main__.py
+  ptvsd-2.2.2/ptvsd/attach_server.py
+  ptvsd-2.2.2/ptvsd/visualstudio_py_debugger.py
+  ptvsd-2.2.2/ptvsd/visualstudio_py_repl.py
+  ptvsd-2.2.2/ptvsd/visualstudio_py_util.py
+  ptvsd-3.2.1/ptvsd/__init__.py
+  ptvsd-3.2.1/ptvsd/__main__.py
+  ptvsd-3.2.1/ptvsd/attach_server.py
+  ptvsd-3.2.1/ptvsd/debugger.py
+  ptvsd-3.2.1/ptvsd/ipcjson.py
+  ptvsd-3.2.1/ptvsd/util.py
+  ptvsd-3.2.1/ptvsd/repl/__init__.py
+  ptvsd-3.2.1/ptvsd/repl/ipython.py
   )
 
 #-----------------------------------------------------------------------------
