@@ -491,6 +491,9 @@ class PyDevRemoteDebugLogic(ScriptedLoadableModuleLogic):
       # remove bin\pycharm and anything after that
       pyCharmPath = value[:value.find(r"\bin\pycharm.exe")]
       pyCharmPath = value[:value.find(r"\bin\pycharm64.exe")]
+      # remove leading " character if present
+      if pyCharmPath[0] == "\"":
+        pyCharmPath = pyCharmPath[1:]
       pyCharmDebugEggPath = pyCharmPath+r"\debug-eggs\pycharm-debug.egg"
       if self.isValidPyCharmDebugEggPath(pyCharmDebugEggPath):
         # found a good value in registry
