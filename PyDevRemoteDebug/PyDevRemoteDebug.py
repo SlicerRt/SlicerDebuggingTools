@@ -216,9 +216,9 @@ class PyDevRemoteDebugWidget(ScriptedLoadableModuleWidget):
     self.pydevdDirLabel.visible = (debugger=="Eclipse")
     self.pyCharmDebugEggPathSelector.visible = (debugger=="PyCharm")
     self.pyCharmDebugEggPathLabel.visible = (debugger=="PyCharm")
-    isVisualStudio = (debugger=='VisualStudio' or debugger=='VisualStudio 2013/2015' or debugger=='VisualStudio 2017' or debugger=='VisualStudio Code')
-    self.secretEditor.visible = isVisualStudio
-    self.secretLabel.visible = isVisualStudio
+    isVisualStudioButNotCode = (debugger=='VisualStudio' or debugger=='VisualStudio 2013/2015' or debugger=='VisualStudio 2017')
+    self.secretEditor.visible = isVisualStudioButNotCode
+    self.secretLabel.visible = isVisualStudioButNotCode
 
   def isCurrentSettingValid(self):
     if not self.logic.getDebugger():
@@ -255,8 +255,11 @@ class PyDevRemoteDebugWidget(ScriptedLoadableModuleWidget):
         self.settingsCollapsibleButton.collapsed = False
         return
       self.logic.savePyCharmDebugEggPath(pydevdDir)
-    elif (debugger=='VisualStudio' or debugger=='VisualStudio 2013/2015' or debugger=='VisualStudio 2017' or debugger=='VisualStudio Code'):
+    elif (debugger=='VisualStudio' or debugger=='VisualStudio 2013/2015' or debugger=='VisualStudio 2017'):
       self.logic.saveSecret(self.secretEditor.text)
+    elif (debugger=='VisualStudio Code'):
+      # there is nothing specific to save
+      pass
     else:
       qt.QMessageBox.warning(slicer.util.mainWindow(),
           "Connect to Python remote debug server", 'Please select a debugger in the settings panel')
@@ -527,7 +530,7 @@ class PyDevRemoteDebugLogic(ScriptedLoadableModuleLogic):
     elif self.getDebugger()=="VisualStudio 2017":
       ptvsdPath = os.path.join(moduleDir, 'ptvsd-3.2.1')
     elif self.getDebugger()=="VisualStudio Code":
-      ptvsdPath = os.path.join(moduleDir, 'ptvsd-3.0.0')
+      ptvsdPath = os.path.join(moduleDir, 'ptvsd-4.1.3')
     import sys
     sys.path.insert(0, ptvsdPath)
     
@@ -557,9 +560,16 @@ class PyDevRemoteDebugLogic(ScriptedLoadableModuleLogic):
         # did not import ptvsd 2.2
         slicer.util.errorDisplay("Slicer must be restarted after switching between VisualStudio debugger versions.")
         return False
-    else:
+    elif self.getDebugger()=="VisualStudio 2017":
       try:
         return (ptvsd.__version__.split('.')[0] == '3')
+      except AttributeError:
+        # did not import ptvsd 3
+        slicer.util.errorDisplay("Slicer must be restarted after switching between VisualStudio debugger versions.")
+        return False
+    else:
+      try:
+        return (ptvsd.__version__.split('.')[0] == '4')
       except AttributeError:
         # did not import ptvsd 3
         slicer.util.errorDisplay("Slicer must be restarted after switching between VisualStudio debugger versions.")
@@ -599,11 +609,10 @@ class PyDevRemoteDebugLogic(ScriptedLoadableModuleLogic):
         +"\n"
         +"Make sure you have configured `Python: Attach` debugging configuration:\n"
         +'"port": {0}\n'
-        +'"secret"="{1}"\n'
         +"\n"
         +"To attach debugger:\n"
         +"- In VisualStudio Code, choose debugging configuration 'Python: Attach'\n"
-        +"- Click Start Debugging").format(self.getPortNumber(),self.getSecret())        
+        +"- Click Start Debugging").format(self.getPortNumber())
     else:
       connectionHelp = "Connecting to remote debug server at port {0}...\nSlicer is paused until {1} accepts the connection.".format(self.getPortNumber(),self.getDebugger())
     self.label = qt.QLabel(connectionHelp)
@@ -621,7 +630,11 @@ class PyDevRemoteDebugLogic(ScriptedLoadableModuleLogic):
       if not self.isCorrectVisualStudioDebuggerVersion():
         slicer.util.errorDisplay("Slicer must be restarted after switching between VisualStudio debugger versions.")
         return False
-      ptvsd.enable_attach(address=('0.0.0.0', self.getPortNumber()), secret=self.getSecret())
+      if self.getDebugger() == "VisualStudio Code":
+        # no secret for VisualStudio Code debugger
+        ptvsd.enable_attach(address=('0.0.0.0', self.getPortNumber()))
+      else:
+        ptvsd.enable_attach(address=('0.0.0.0', self.getPortNumber()), secret=self.getSecret())
       ptvsd.wait_for_attach()
     else:
       try:
