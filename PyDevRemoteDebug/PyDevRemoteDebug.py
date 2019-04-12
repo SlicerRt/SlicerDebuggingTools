@@ -640,7 +640,7 @@ class PyDevRemoteDebugLogic(ScriptedLoadableModuleLogic):
       try:
         import pydevd
         pydevd.settrace('localhost', port=self.getPortNumber(), stdoutToServer=True, stderrToServer=True, suspend=False)
-      except (Exception, SystemExit), e:
+      except (Exception, SystemExit) as e:
         self.info.hide()
         import traceback
         traceback.print_exc()
