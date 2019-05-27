@@ -484,20 +484,44 @@ class PyDevRemoteDebugLogic(ScriptedLoadableModuleLogic):
     # Auto-detect
     import platform
     if platform.system() == 'Windows':
-      import _winreg
-      aReg = _winreg.ConnectRegistry(None,_winreg.HKEY_CLASSES_ROOT)
-      aKey = _winreg.OpenKey(aReg, r"Applications\pycharm.exe\shell\open\command")
-      value = _winreg.QueryValue(aKey, None) # something like: 'C:\Program Files (x86)\JetBrains\PyCharm 4.5.4\bin\pycharm.exe "%1"'
+      try:
+        # Python2
+        import _winreg as winreg
+      except ImportError:
+        # Python3
+        import winreg
+
+      value = None
+      pycharmExeKeys = [r"Applications\pycharm.exe\shell\open\command", r"Applications\pycharm64.exe\shell\open\command"]
+      for pycharmExeKey in pycharmExeKeys:
+        try:
+          aReg = winreg.ConnectRegistry(None,winreg.HKEY_CLASSES_ROOT)
+          aKey = winreg.OpenKey(aReg, pycharmExeKey)
+          value = winreg.QueryValue(aKey, None)
+          if value:
+            # found a non-empty value
+            break
+        except:
+          # not found
+          pass
       if not value:
         # PyCharm not found in registry
         return ''
-      # remove bin\pycharm and anything after that
+      logging.debug("PyCharm was found in registry: "+value)
+
+      # Get PyCharm path by removing bin\pycharm... and anything beyond that
+      # from value variable, which initially contains something like:
+      # 'C:\Program Files (x86)\JetBrains\PyCharm 4.5.4\bin\pycharm.exe "%1"'
       pyCharmPath = value[:value.find(r"\bin\pycharm.exe")]
       pyCharmPath = value[:value.find(r"\bin\pycharm64.exe")]
       # remove leading " character if present
       if pyCharmPath[0] == "\"":
         pyCharmPath = pyCharmPath[1:]
       pyCharmDebugEggPath = pyCharmPath+r"\debug-eggs\pycharm-debug.egg"
+      if self.isValidPyCharmDebugEggPath(pyCharmDebugEggPath):
+        # found a good value in registry
+        return pyCharmDebugEggPath
+      pyCharmDebugEggPath = pyCharmPath+r"\debug-eggs\pydevd-pycharm.egg"
       if self.isValidPyCharmDebugEggPath(pyCharmDebugEggPath):
         # found a good value in registry
         return pyCharmDebugEggPath
