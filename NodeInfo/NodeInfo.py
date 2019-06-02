@@ -93,7 +93,7 @@ class NodeInfoWidget(ScriptedLoadableModuleWidget):
     self.createVariableButtonBaseText = "Create variable in Python console"
     self.createVariableButton = qt.QPushButton(self.createVariableButtonBaseText)
     quickInfoFormLayout.addRow(self.createVariableButton)
-    
+
     # connections
     self.showInfoButton.connect('clicked(bool)', self.onShowInfoClicked)
     self.createVariableButton.connect('clicked(bool)', self.onCreateVariableClicked)
@@ -191,7 +191,7 @@ class NodeInfoWidget(ScriptedLoadableModuleWidget):
     import re
     varName = re.sub(r'\W+', '', varName)
     return varName
-    
+
   def onCreateVariableClicked(self):
     pm=slicer.app.pythonManager()
     currentNode = self.inputSelector.currentNode()
@@ -202,7 +202,7 @@ class NodeInfoWidget(ScriptedLoadableModuleWidget):
     mw=slicer.util.mainWindow()
     mw.onPythonConsoleToggled(True)
 
-    
+
 #
 # NodeInfoLogic
 #
@@ -268,14 +268,9 @@ class NodeInfoLogic(ScriptedLoadableModuleLogic):
     nodeInfoDockWidget.setWidget(nodeInfoMainFrame)
     mainWindow.addDockWidget(qt.Qt.RightDockWidgetArea, nodeInfoDockWidget)
 
-    if not hasattr(slicer, 'nodeInfoPopupWindows'):
-      slicer.nodeInfoPopupWindows = []
-    slicer.nodeInfoPopupWindows.append(nodeInfoDockWidget)
     if returnPopupWindow:
       return nodeInfoDockWidget
-  
-  def destroyNodeInfoWindow(node, nodeInfoDockWidget):
-    slicer.nodeInfoPopupWindows.remove(nodeInfoDockWidget)
+
 
 class NodeInfoTest(ScriptedLoadableModuleTest):
   """
@@ -309,7 +304,6 @@ class NodeInfoTest(ScriptedLoadableModuleTest):
 
     self.delayDisplay("Starting the test")
     logic = NodeInfoLogic()
-    popup = logic.showNodeInfo(slicer.util.getNode('Selection'))
+    popup = logic.createNodeInfoPopupWindow(slicer.util.getNode('Selection'), returnPopupWindow=True)
     self.assertIsNotNone(popup)
-    destroyNodeInfoWindow(popup)
     self.delayDisplay('Test passed!')
