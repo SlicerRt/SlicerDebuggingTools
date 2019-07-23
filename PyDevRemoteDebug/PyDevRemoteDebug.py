@@ -105,10 +105,10 @@ class PyDevRemoteDebugWidget(ScriptedLoadableModuleWidget):
     pyCharmDebugEggPath=self.logic.getPyCharmDebugEggPath(enableAutoDetect=(debugger=='PyCharm'))
     self.pyCharmDebugEggPathSelector = ctk.ctkPathLineEdit()
     self.pyCharmDebugEggPathSelector.setCurrentPath(pyCharmDebugEggPath)
-    self.pyCharmDebugEggPathSelector.nameFilters=['pycharm-debug.egg']
+    self.pyCharmDebugEggPathSelector.nameFilters=['pydevd-pycharm.egg', 'pycharm-debug.egg']
     self.pyCharmDebugEggPathSelector.setMaximumWidth(300)
-    self.pyCharmDebugEggPathSelector.setToolTip("Set the path to pycharm-debug.egg . It is in the .../PyCharm/debug-eggs folder.")
-    self.pyCharmDebugEggPathLabel = qt.QLabel("PyCharm pycharm-debug.egg path:")
+    self.pyCharmDebugEggPathSelector.setToolTip("Set the path to pydevd-pycharm.egg or pycharm-debug.egg . It is in the .../PyCharm/debug-eggs folder.")
+    self.pyCharmDebugEggPathLabel = qt.QLabel("PyCharm debug egg path:")
     settingsFormLayout.addRow(self.pyCharmDebugEggPathLabel, self.pyCharmDebugEggPathSelector)
 
     # port number
@@ -517,7 +517,7 @@ class PyDevRemoteDebugLogic(ScriptedLoadableModuleLogic):
       # remove leading " character if present
       if pyCharmPath[0] == "\"":
         pyCharmPath = pyCharmPath[1:]
-      pyCharmDebugEggPath = pyCharmPath+r"\debug-eggs\pycharm-debug.egg"
+      pyCharmDebugEggPath = pyCharmPath+r"\debug-eggs\pycharm-debug.egg" # PyCharm version of 2018 or older
       if self.isValidPyCharmDebugEggPath(pyCharmDebugEggPath):
         # found a good value in registry
         return pyCharmDebugEggPath
