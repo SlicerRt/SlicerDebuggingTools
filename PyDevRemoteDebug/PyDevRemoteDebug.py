@@ -572,7 +572,13 @@ class PyDevRemoteDebugLogic(ScriptedLoadableModuleLogic):
         import pydevd
       except ImportError:
         return False
-      return pydevd.connected
+      # return attribute depending on which version of pydevd.py is being used
+      if hasattr(pydevd, '_debugger_setup'):
+        return pydevd._debugger_setup     # updated PyDev
+      elif hasattr(pydevd, 'connected'):
+        return pydevd.connected           # older version
+      else:
+        return False
       
   def isCorrectVisualStudioDebuggerVersion(self):
     import ptvsd
