@@ -26,6 +26,9 @@ class NodeModifiedStatisticsWidget(ScriptedLoadableModuleWidget):
   def setup(self):
     self.logic = NodeModifiedStatisticsLogic()
 
+    self.chartNode = None
+    self.seriesNode = None
+
     ScriptedLoadableModuleWidget.setup(self)
 
     # Parameters
@@ -41,13 +44,13 @@ class NodeModifiedStatisticsWidget(ScriptedLoadableModuleWidget):
     self.inputSelector.noneEnabled = False
     self.inputSelector.showHidden = False
     self.inputSelector.showChildNodeTypes = False
-    self.inputSelector.setMRMLScene( slicer.mrmlScene )
+    self.inputSelector.setMRMLScene(slicer.mrmlScene)
     parametersFormLayout.addRow("Input Node: ", self.inputSelector)
 
     self.showHiddenNodesCheckBox = qt.QCheckBox('')
     self.showHiddenNodesCheckBox.checked = False
-    parametersFormLayout.addRow('Show Hidden Nodes: ', self.showHiddenNodesCheckBox) 
-    
+    parametersFormLayout.addRow('Show Hidden Nodes: ', self.showHiddenNodesCheckBox)
+
     self.computeStatisticsButton = qt.QPushButton("Compute Statistics")
     self.computeStatisticsButton.enabled = False
     self.computeStatisticsButton.checkable = True
@@ -70,32 +73,53 @@ class NodeModifiedStatisticsWidget(ScriptedLoadableModuleWidget):
     statisticsFormLayout.addRow("Average (ms): ", self.averageLineEdit)
     self.sdLineEdit = qt.QLineEdit('N/A')
     self.sdLineEdit.setReadOnly(True)
-    statisticsFormLayout.addRow("SD (ms): ", self.sdLineEdit)
+    statisticsFormLayout.addRow("Standard deviation (ms): ", self.sdLineEdit)
     self.minLineEdit = qt.QLineEdit('N/A')
     self.minLineEdit.setReadOnly(True)
-    statisticsFormLayout.addRow("Min (ms): ", self.minLineEdit)
+    statisticsFormLayout.addRow("Minimum (ms): ", self.minLineEdit)
     self.maxLineEdit = qt.QLineEdit('N/A')
     self.maxLineEdit.setReadOnly(True)
-    statisticsFormLayout.addRow("Max (ms): ", self.maxLineEdit)
+    statisticsFormLayout.addRow("Maximum (ms): ", self.maxLineEdit)
 
     self.resetStatisticsButton = qt.QPushButton("Reset Statistics")
     self.resetStatisticsButton.enabled = True
     statisticsFormLayout.addRow(self.resetStatisticsButton)
 
-    self.showSamplesButton = qt.QPushButton("Show Latest Samples")
-    self.showSamplesButton.enabled = True
-    statisticsFormLayout.addRow(self.showSamplesButton)
+    samplesCollapsibleButton = ctk.ctkCollapsibleButton()
+    samplesCollapsibleButton.text = "Samples"
+    self.layout.addWidget(samplesCollapsibleButton)
+    samplesFormLayout = qt.QFormLayout(samplesCollapsibleButton)
 
-    self.sampleList = qt.QListWidget()
-    statisticsFormLayout.addRow(self.sampleList)
+    self.outputTableSelector = slicer.qMRMLNodeComboBox()
+    self.outputTableSelector.selectNodeUponCreation = True
+    self.outputTableSelector.nodeTypes = ['vtkMRMLTableNode']
+    self.outputTableSelector.addEnabled = True
+    self.outputTableSelector.removeEnabled = True
+    self.outputTableSelector.noneEnabled = True
+    self.outputTableSelector.showHidden = False
+    self.outputTableSelector.showChildNodeTypes = False
+    self.outputTableSelector.setMRMLScene(slicer.mrmlScene)
+    samplesFormLayout.addRow("Output table: ", self.outputTableSelector)
+
+    self.showSamplesButton = qt.QPushButton("Get latest samples")
+    samplesFormLayout.addRow(self.showSamplesButton)
+
+    self.showSamplesPlotButton = qt.QPushButton("Show latest samples plot")
+    samplesFormLayout.addRow(self.showSamplesPlotButton)
+
+    self.sampleList = slicer.qMRMLTableView()
+    self.sampleList.setMRMLScene(slicer.mrmlScene)
+    samplesFormLayout.addRow(self.sampleList)
 
     # connections
     self.computeStatisticsButton.connect('clicked(bool)', self.onComputeStatisticsClicked)
     self.resetStatisticsButton.connect('clicked(bool)', self.onResetStatisticsClicked)
     self.showSamplesButton.connect('clicked(bool)', self.onShowSamplesClicked)
+    self.showSamplesPlotButton.connect('clicked(bool)', self.onShowSamplesPlotClicked)
     self.inputSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.onSelect)
     self.showHiddenNodesCheckBox.connect('stateChanged(int)', self.onShowHiddenNodesChecked)
-        
+    self.outputTableSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.onSelect)
+
     # Add vertical spacer
     self.layout.addStretch(1)
 
@@ -109,18 +133,19 @@ class NodeModifiedStatisticsWidget(ScriptedLoadableModuleWidget):
 
   def onShowHiddenNodesChecked(self, state):
     self.inputSelector.showHidden = state
-    
-  def onSelect(self):    
+
+  def onSelect(self):
     if self.computeStatisticsButton.enabled:
       if self.computeStatisticsButton.checked:
         self.logic.removeModifiedObserver()
         self.resetStatsDisplay()
         self.logic.reset()
         self.computeStatisticsButton.checked = False
-      elif not self.computeStatisticsButton.checked:      
+      elif not self.computeStatisticsButton.checked:
         self.resetStatsDisplay()
-        self.logic.reset()      
+        self.logic.reset()
     self.computeStatisticsButton.enabled = self.inputSelector.currentNode()
+    self.sampleList.setMRMLTableNode(self.outputTableSelector.currentNode())
 
   def onComputeStatisticsClicked(self):
     if self.computeStatisticsButton.checked:
@@ -135,20 +160,42 @@ class NodeModifiedStatisticsWidget(ScriptedLoadableModuleWidget):
   def resetStatsDisplay(self):
     for lineEdit in self.lineEdits:
       lineEdit.setText('N/A')
-    self.sampleList.clear()
+    if self.sampleList.mrmlTableNode():
+      self.sampleList.mrmlTableNode().RemoveAllColumns()
 
   def onShowSamplesClicked(self):
-    self.sampleList.clear()
-    if self.logic.numberOfMovingAverageSamplesCollected<=len(self.logic.movingAverageSamples):
-      for sampleValue in self.logic.movingAverageSamples[0:self.logic.numberOfMovingAverageSamplesCollected]:
-        self.sampleList.addItem(sampleValue)
-    else:
-      # data is stored in a rotating buffer, start printing the old samples first and then the new samples
-      oldestSampleIndex = self.logic.numberOfMovingAverageSamplesCollected % len(self.logic.movingAverageSamples)
-      for sampleValue in self.logic.movingAverageSamples[oldestSampleIndex:len(self.logic.movingAverageSamples)-oldestSampleIndex]:
-        self.sampleList.addItem(sampleValue)
-      for sampleValue in self.logic.movingAverageSamples[0:oldestSampleIndex]:
-        self.sampleList.addItem(sampleValue)
+    tableNode = self.outputTableSelector.currentNode()
+    if not tableNode:
+      tableNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLTableNode", slicer.mrmlScene.GetUniqueNameByString("NodeModifiedStatisticsSamplesTable"))
+      self.outputTableSelector.setCurrentNode(tableNode)
+    slicer.util.updateTableFromArray(tableNode, self.logic.movingAverageSamples, 'time (s)')
+
+  def onShowSamplesPlotClicked(self):
+    # Ensure table node is created
+    self.onShowSamplesClicked()
+    tableNode = self.outputTableSelector.currentNode()
+
+    # Create chart and add plot
+    if not self.chartNode:
+      self.chartNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLPlotChartNode", slicer.mrmlScene.GetUniqueNameByString("NodeModifiedStatisticsSamplesChart"))
+      self.chartNode.SetTitle(self.chartNode.GetName())
+
+    # Create plot series node(s)
+    if not self.seriesNode:
+      self.seriesNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLPlotSeriesNode", slicer.mrmlScene.GetUniqueNameByString("NodeModifiedStatisticsSamplesSeries"))
+      self.seriesNode.SetUniqueColor()
+    self.seriesNode.SetAndObserveTableNodeID(tableNode.GetID())
+    self.seriesNode.SetPlotType(self.seriesNode.PlotTypeLine)
+    self.seriesNode.SetYColumnName(tableNode.GetTable().GetColumn(0).GetName())
+    if not self.chartNode.HasPlotSeriesNodeID(self.seriesNode.GetID()):
+      self.chartNode.AddAndObservePlotSeriesNodeID(self.seriesNode.GetID())
+
+    # Show plot in layout
+    slicer.modules.plots.logic().ShowChartInLayout(self.chartNode)
+
+    # Without this, chart view may show up completely empty when the same nodes are updated
+    # (this is probably due to a bug in plotting nodes or widgets).
+    self.chartNode.Modified()
 
 class NodeModifiedStatisticsLogic(ScriptedLoadableModuleLogic):
 
