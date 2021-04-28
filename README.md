@@ -54,21 +54,34 @@ Python debuggers:
 - Install [Visual Studio Code](https://code.visualstudio.com/) (free, available on Windows, Linux, and Mac)
 - Install `Python` extension by Microsoft
 - Start Visual Studio Code and set up remote debugger connection to Slicer:
-  - Select in menu: Debug / Add configuration
-  - Add this entry to `configurations` element in the displayed `launch.json` file and then save the file
+  - Open a folder that contains your Python files by selecting in menu: File / Open folder
+  - Open a Python file
+  - Select in menu: Run / Add configuration
+  - Choose "Remote attach", use `localhost` for host name, and `5678` for port number 
+  - Visual Studio should show `launch.json` file that contains a `Python: Remote Attach` entry in `configurations` element. Remove `pathMappings` section (otherwise the debugger with fail to add breakpoints with the message `pydev debugger: warning: try to add breakpoint to file that does not exist`). The resulting launch.json file should look something like this:
 
 ```
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
         {
-            "name": "Python: Attach to Slicer",
+            "name": "Python: Remote Attach",
             "type": "python",
             "request": "attach",
-            "port": 5678,
-            "host": "localhost"
-        },
+            "connect": {
+                "host": "localhost",
+                "port": 5678
+            }
+        }
+    ]
+}
 ```
 
-  - Click the debug icon in the left side of the screen
-  - Choose `Python: Attach to Slicer` configuration at the top of the debug panel
+  - Click the "Run and debug" icon in the left side of the screen
+  - Choose `Python: Remote Attach` configuration at the top of the debug panel
 
 ![Adding Python debug configuration in Visual Studio Code](Docs/VisualStudioCodePythonDebuggerSetup.png)
 
@@ -86,6 +99,7 @@ Python debuggers:
 - In Visual Studio Code:
   - Click debugger icon on the left side of the screen
   - Click `Start debugging` button (green triangle)
+  - Add a breakpoint to the Python file where you want to start debugging by clicking slightly to the left from the line number (a red dot will appear there)
 
 ### Instructions for Eclipse
 
