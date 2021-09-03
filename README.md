@@ -25,7 +25,7 @@ Python debuggers:
 - In PyCharm:
   - In the menu select: `Run` / `Edit configurations`
   - Click the small + icon in the top-left (Add new configuration)
-  - Select `Python remote debug configuration` as a template
+  - Select `Python remote debug configuration` or `Python debug server` as template
   - Set Name: `Slicer remote debugger`
   - Set Port: `5678`
   - Click OK
@@ -33,7 +33,7 @@ Python debuggers:
   - Install the `DebuggingTools` extension
   - Open the `Python debugger` module (in `Developer Tools` category)
   - In the `Settings` section select debugger: `PyCharm`
-  - If `pycharm-debug.egg` path is not detected automatically then set the path with the selector
+  - If `pycharm-debug.egg` path is not detected automatically then set the path with the selector (it is usually in the `debug-eggs` subfolder of the PyCharm installation)
 
 #### Start debugging
 - In PyCharm:
@@ -46,6 +46,14 @@ Python debuggers:
   - **Important: once Slicer is paused at a breakpoint, you can open a terminal**, where you can enter Python commands. In that terminal you have access to all Slicer variables, it has auto-complete, etc. Click the small terminal icon `Show Python Prompt` to open the Python terminal.
 
 ![Python debugging console in PyCharm](Docs/PyCharmDebugConsole.png)
+
+##### Troubleshooting
+
+###### Connection refused
+
+If attaching the debugger with "Connection refused" error message then:
+- Make sure the debug server is started. It is indicated by PyCharm should displaying this message `Starting debug server at port 5678 ... Waiting for process connection`
+- On Linux, make sure the 5678 port is enabled on the firewall by this command: `sudo ufw allow 5678`
 
 ### Instrucions for Visual Studio Code
 
