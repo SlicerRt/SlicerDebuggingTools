@@ -55,7 +55,7 @@ If attaching the debugger with "Connection refused" error message then:
 - Make sure the debug server is started. It is indicated by PyCharm should displaying this message `Starting debug server at port 5678 ... Waiting for process connection`
 - On Linux, make sure the 5678 port is enabled on the firewall by this command: `sudo ufw allow 5678`
 
-### Instrucions for Visual Studio Code
+### Instructions for Visual Studio Code
 
 #### One-time setup
 
