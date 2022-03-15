@@ -21,6 +21,56 @@ class NodeInfo(ScriptedLoadableModule):
     self.parent.contributors = ["Andras Lasso (PerkLab, Queen's University)"] # replace with "Firstname Lastname (Organization)"
     self.parent.helpText = """Opens a popup window that shows contents of a MRML node."""
     self.parent.acknowledgementText = """ """ # replace with organization, grant and thanks.
+    slicer.app.connect("startupCompleted()", self.initializeNodesObject)
+
+  def initializeNodesObject(self):
+    """Create nodes object and add it to the Python console's namespace.
+    It makes MRML nodes available in the Python console by autcomplete,by typing `n.` and pressing `Tab` key.
+    For example, the `MRHead` node becomes available in the Python console as `n.MRHead`.
+    """
+    # Create a Nodes object
+    slicer.nodes = Nodes()
+    # Make the object available in the Python console
+    pm = slicer.app.pythonManager()
+    pm.executeString("from slicer import nodes as n")
+
+#
+# Nodes object that makes all MRML nodes available as attribute.
+#
+
+class Nodes(object):
+    """This object has MRML nodes in the slicer scene available as attributes.
+    The attribute name is generated from the node name, replacing invalid characters by underscore
+    and prepending `n` to node names that start with a number.
+    """
+    def __init__(self, ignoreHiddenNodes=True):
+        self.variableNameToId = {}
+        self.ignoreHiddenNodes = ignoreHiddenNodes
+    def __getattr__(self, name):
+        ''' will only get called for undefined attributes '''
+        return slicer.mrmlScene.GetNodeByID(self.variableNameToId[name])
+    @property
+    def __dict__(self):
+        import slicer
+        import re
+        attributes = {}
+        scene = slicer.mrmlScene
+        count = scene.GetNumberOfNodes()
+        for idx in range(count):
+            node = scene.GetNthNode(idx)
+            if self.ignoreHiddenNodes and node.GetHideFromEditors():
+                continue
+            nodeName = node.GetName()
+            id = node.GetID()
+            # Python variable can only contain word characters (a-z, A-Z, 0-9, including _),
+            # replace non-word characters by underscore.
+            variableName = re.sub(r'\W+', '_', nodeName)
+            # Python variable name cannot start with a number, prepend "n" if it does.
+            if variableName[:1].isdigit():
+                variableName = "n" + variableName
+            self.variableNameToId[variableName] = id
+            attributes[variableName] = type(node)
+        return attributes
 
 #
 # NodeInfoWidget
