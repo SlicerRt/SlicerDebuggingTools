@@ -88,8 +88,8 @@ If attaching the debugger with "Connection refused" error message then:
 }
 ```
 
-  - Click the "Run and debug" icon in the left side of the screen
-  - Choose `Python: Remote Attach` configuration at the top of the debug panel
+  - Click the "Run and debug" icon in the left side of the screen (see `1` in the screenshot below)
+  - Choose `Python: Remote Attach` configuration at the top of the debug panel (see `2` in the screenshot below). Do not click the green button yet (`3` in the screenshot below): connection will fail because the connection has not been initiated in Slicer yet.
 
 ![Adding Python debug configuration in Visual Studio Code](Docs/VisualStudioCodePythonDebuggerSetup.png)
 
@@ -105,9 +105,9 @@ If attaching the debugger with "Connection refused" error message then:
   - Open the `Python debugger` module (in `Developer Tools` category)
   - Click on `Connect` button. Slicer will become unresponsive until the debugger is attached.
 - In Visual Studio Code:
-  - Click debugger icon on the left side of the screen
-  - Click `Start debugging` button (green triangle)
-  - Add a breakpoint to the Python file where you want to start debugging by clicking slightly to the left from the line number (a red dot will appear there)
+  - Click debugger icon on the left side of the screen (see `1` in the screenshot above)
+  - Click `Start debugging` button (green triangle, see `3` in the screenshot above)
+  - Add a breakpoint to the Python file where you want to start debugging by clicking slightly to the left from the line number (a red dot will appear there, see `4` in the screenshot above)
 
 ### Instructions for Eclipse
 
