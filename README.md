@@ -79,10 +79,8 @@ If attaching the debugger with "Connection refused" error message then:
             "name": "Python: Remote Attach",
             "type": "python",
             "request": "attach",
-            "connect": {
-                "host": "localhost",
-                "port": 5678
-            }
+            "port": 5678,
+            "host": "localhost"
         }
     ]
 }
@@ -160,10 +158,16 @@ If attaching the debugger with "Connection refused" error message then:
   - `Qualifier` -> `tcp://slicer@localhost:5678`
   - Press Enter (or click `Refresh` button). The Slicer process should appear in the list below.
   - Press Enter (or click `Attach` button). The popup window in Slicer should disappear.
-- In Visual Studio 2017 or later:
+- In Visual Studio 2017:
   - In menu, select `Debug > Attach to Process` to display the `Attach to Process` window
   - `Connection type` -> `Python remote (ptvsd)`
   - `Connection target` -> `tcp://slicer@localhost:5678`
   - Press Enter (or click `Refresh` button). The Slicer process should appear in the list below.
   - Press Enter (or click `Attach` button). The popup window in Slicer should disappear.
   - For connecting again, `Debug` / `Reattach to Process` function can be used
+- In Visual Studio 2019 or later:
+  - In menu, select `Debug > Attach to Process` to display the `Attach to Process` window
+  - `Attach to` -> `Python code`
+  - `Process` -> `SlicerApp-real.exe`
+  - Press Enter (or click `Attach` button). The popup window in Slicer should disappear.
+  - For connecting again, `Debug > Reattach to Process` function can be used

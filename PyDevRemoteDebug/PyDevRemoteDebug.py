@@ -75,17 +75,20 @@ class PyDevRemoteDebugWidget(ScriptedLoadableModuleWidget):
     self.debuggerSelector.addItem("PyCharm")
     self.debuggerSelector.addItem("VisualStudio 2013/2015")
     self.debuggerSelector.addItem("VisualStudio 2017")
+    self.debuggerSelector.addItem("VisualStudio 2019/2022")
     self.debuggerSelector.addItem("VisualStudio Code")
     if debugger=='Eclipse':
       self.debuggerSelector.currentIndex = 0
     elif debugger=='PyCharm':
       self.debuggerSelector.currentIndex = 1
-    elif debugger=='VisualStudio' or debugger=='VisualStudio 2013/2015':
+    elif debugger=='VisualStudio 2013/2015':
       self.debuggerSelector.currentIndex = 2
     elif debugger=='VisualStudio 2017':
       self.debuggerSelector.currentIndex = 3
-    elif debugger=='VisualStudio Code':
+    elif debugger=='VisualStudio' or debugger=='VisualStudio 2019/2022':
       self.debuggerSelector.currentIndex = 4
+    elif debugger=='VisualStudio Code':
+      self.debuggerSelector.currentIndex = 5
     else:
       self.debuggerSelector.currentIndex = -1
     settingsFormLayout.addRow("Debugger: ", self.debuggerSelector)
@@ -117,7 +120,8 @@ class PyDevRemoteDebugWidget(ScriptedLoadableModuleWidget):
     self.portInputSpinBox.maximum = 65535
     portNumber=self.logic.getPortNumber()
     self.portInputSpinBox.setValue(int(portNumber))
-    settingsFormLayout.addRow("Port:", self.portInputSpinBox)
+    self.portInputLabel = qt.QLabel("Port:")
+    settingsFormLayout.addRow(self.portInputLabel, self.portInputSpinBox)
 
     # ptvsd connection secret word
     secret=self.logic.getSecret()
@@ -126,7 +130,6 @@ class PyDevRemoteDebugWidget(ScriptedLoadableModuleWidget):
     self.secretEditor.setToolTip("Set the secret word for VisualStudio remote debugger.")
     self.secretLabel = qt.QLabel("Secret:")
     settingsFormLayout.addRow(self.secretLabel, self.secretEditor)
-    
     
     if not self.isCurrentSettingValid():
       self.settingsCollapsibleButton.collapsed = False
@@ -207,18 +210,23 @@ class PyDevRemoteDebugWidget(ScriptedLoadableModuleWidget):
       if not connected:
         self.connectButton.text = "Connect to VisualStudio 2017 debugger"
         self.connectButton.toolTip = "Connect to VisualStudio Python debugger. Make sure 'Python native development tools' are installed in VisualStudio / Tools / Get Tools and Features"
+    elif debugger=='VisualStudio' or debugger=='VisualStudio 2019/2022':
+      if not connected:
+        self.connectButton.text = "Connect to VisualStudio 2019/2022 debugger"
+        self.connectButton.toolTip = "Connect to VisualStudio Python debugger (Debug/Attach to Process -> Attach to: Python code, Process: SlicerApp-real.exe). Make sure 'Python development tools' are installed in Visual Studio Installer."
     elif debugger=='VisualStudio Code':
       if not connected:
         self.connectButton.text = "Connect to VisualStudio Code debugger"
         self.connectButton.toolTip = "Connect to VisualStudio Python remote debugger."
 
+    isDebugpy = (debugger=='VisualStudio' or debugger=='VisualStudio 2019/2022')
     self.pydevdDirSelector.visible = (debugger=="Eclipse")
     self.pydevdDirLabel.visible = (debugger=="Eclipse")
     self.pyCharmDebugEggPathSelector.visible = (debugger=="PyCharm")
     self.pyCharmDebugEggPathLabel.visible = (debugger=="PyCharm")
-    isVisualStudioButNotCode = (debugger=='VisualStudio' or debugger=='VisualStudio 2013/2015' or debugger=='VisualStudio 2017')
-    self.secretEditor.visible = isVisualStudioButNotCode
-    self.secretLabel.visible = isVisualStudioButNotCode
+    isPtvsd = (debugger=='VisualStudio 2013/2015' or debugger=='VisualStudio 2017')
+    self.secretEditor.visible = isPtvsd
+    self.secretLabel.visible = isPtvsd
 
   def isCurrentSettingValid(self):
     if not self.logic.getDebugger():
@@ -237,6 +245,7 @@ class PyDevRemoteDebugWidget(ScriptedLoadableModuleWidget):
   def onConnect(self):
 
     debugger = self.debuggerSelector.currentText
+    isDebugpy = (debugger=='VisualStudio' or debugger=='VisualStudio 2019/2022')
     if debugger=='Eclipse':
       pydevdDir=self.pydevdDirSelector.currentPath
       # Verify path
@@ -255,9 +264,9 @@ class PyDevRemoteDebugWidget(ScriptedLoadableModuleWidget):
         self.settingsCollapsibleButton.collapsed = False
         return
       self.logic.savePyCharmDebugEggPath(pydevdDir)
-    elif (debugger=='VisualStudio' or debugger=='VisualStudio 2013/2015' or debugger=='VisualStudio 2017'):
+    elif (debugger=='VisualStudio 2013/2015' or debugger=='VisualStudio 2017'):
       self.logic.saveSecret(self.secretEditor.text)
-    elif (debugger=='VisualStudio Code'):
+    elif (debugger=='VisualStudio Code' or debugger=='VisualStudio' or debugger=='VisualStudio 2019/2022'):
       # there is nothing specific to save
       pass
     else:
@@ -270,7 +279,9 @@ class PyDevRemoteDebugWidget(ScriptedLoadableModuleWidget):
     self.logic.savePortNumber(portNumber)
 
     self.logic.connectionCompleteCallback = self.onConnectionComplete
+    self.connectButton.enabled = False
     self.logic.connect()
+    self.connectButton.enabled = True
 
   def onConnectionComplete(self, connected):
     if connected:
@@ -339,14 +350,22 @@ class PyDevRemoteDebugLogic(ScriptedLoadableModuleLogic):
     if settings.contains('Developer/PythonRemoteDebugServer'):
       debugger = settings.value('Developer/PythonRemoteDebugServer')
       if (debugger=="Eclipse" or debugger=="PyCharm"
-        or debugger=="VisualStudio" or debugger=='VisualStudio 2013/2015'
-        or debugger=='VisualStudio 2017' or debugger=='VisualStudio Code'):
+        or debugger=='VisualStudio 2013/2015'
+        or debugger=='VisualStudio 2017' or debugger=='VisualStudio Code'
+        or debugger=="VisualStudio" or debugger=='VisualStudio 2019/2022'):
         return debugger
     return ''
     
-  def isDebuggerVisualStudio(self):
+  def isDebuggerPtvsd(self):
     debugger = self.getDebugger()
-    return (debugger == "VisualStudio" or debugger == "VisualStudio 2013/2015" or debugger == "VisualStudio 2017" or debugger == "VisualStudio Code")
+    return (debugger == "VisualStudio 2013/2015" or debugger == "VisualStudio 2017")
+
+  def isDebuggerDebugpy(self):
+    debugger = self.getDebugger()
+    return (debugger == "VisualStudio" or debugger == "VisualStudio 2019/2022" or debugger == "VisualStudio Code")
+
+  def isDebuggerVisualStudio(self):
+    return self.isDebuggerPtvsd() or self.isDebuggerDebugpy()
 
   def getPortNumber(self):
     if self.isDebuggerVisualStudio():
@@ -549,22 +568,30 @@ class PyDevRemoteDebugLogic(ScriptedLoadableModuleLogic):
 
   def addPtvsdToPath(self):
     moduleDir = os.path.dirname(__file__)
-    if self.getDebugger()=="VisualStudio" or self.getDebugger()=="VisualStudio 2013/2015":
+    if self.getDebugger()=="VisualStudio 2013/2015":
       ptvsdPath = os.path.join(moduleDir, 'ptvsd-2.2.2')
     elif self.getDebugger()=="VisualStudio 2017":
       ptvsdPath = os.path.join(moduleDir, 'ptvsd-3.2.1')
-    elif self.getDebugger()=="VisualStudio Code":
-      ptvsdPath = os.path.join(moduleDir, 'ptvsd-4.1.3')
     import sys
     sys.path.insert(0, ptvsdPath)
     
   def isConnected(self):
-    if self.isDebuggerVisualStudio():    
+    if self.isDebuggerPtvsd():    
       try:
         import ptvsd
       except ImportError:
         return False
       return ptvsd.is_attached()
+    elif self.isDebuggerDebugpy():
+      try:
+        import debugpy
+      except ImportError:
+        slicer.util.pip_install('debugpy')
+      try:
+        import debugpy
+      except ImportError:
+        return False
+      return debugpy.is_client_connected()
     else:
       if not self.updatePydevdPath():
         return False
@@ -580,9 +607,9 @@ class PyDevRemoteDebugLogic(ScriptedLoadableModuleLogic):
       else:
         return False
       
-  def isCorrectVisualStudioDebuggerVersion(self):
+  def isCorrectPtvsdVersion(self):
     import ptvsd
-    if self.getDebugger()=="VisualStudio" or self.getDebugger()=="VisualStudio 2013/2015":
+    if self.getDebugger()=="VisualStudio 2013/2015":
       try:
         from ptvsd.attach_server import PTVS_VER
         return (PTVS_VER == "2.2")
@@ -610,7 +637,7 @@ class PyDevRemoteDebugLogic(ScriptedLoadableModuleLogic):
     # Return if already connected    
     if self.isConnected():
       qt.QMessageBox.warning(slicer.util.mainWindow(),
-      "Connect to PyDev remote debug server", 'You are already connected to the remote debugger. If the connection is broken (e.g., because the server terminated the connection) then you need to restart Slicer to be able to connect again.')
+      "Connect to debugger", 'You are already connected to the remote debugger. If the connection is broken (e.g., because the server terminated the connection) then you need to restart Slicer to be able to connect again.')
       return False
 
     # Show a dialog that explains that Slicer will hang
@@ -618,55 +645,101 @@ class PyDevRemoteDebugLogic(ScriptedLoadableModuleLogic):
     self.info.setModal(False)
     self.infoLayout = qt.QVBoxLayout()
     self.info.setLayout(self.infoLayout)
-    if self.getDebugger()=="VisualStudio" or self.getDebugger()=="VisualStudio 2013/2015":
+    if self.getDebugger()=="VisualStudio 2013/2015":
       connectionHelp = ("Waiting for VisualStudio 2013/2015 debugger attachment...\n\n"
-        +"To attach debugger:\n"
-        +"- In VisualStudio, open menu: Debug / Attach to process\n"
-        +"- Select Transport: 'Python remote (ptvsd)\n"
-        +"- Set Qualifier: 'tcp://{1}@localhost:{0}'\n"
-        +"- Click Refresh\n"
-        +"- Click Attach").format(self.getPortNumber(),self.getSecret())
+        + "To attach debugger:\n"
+        + "- In VisualStudio, open menu: Debug / Attach to process\n"
+        + "- Select Transport: 'Python remote (ptvsd)\n"
+        + "- Set Qualifier: 'tcp://{1}@localhost:{0}'\n"
+        + "- Click Refresh\n"
+        + "- Click Attach").format(self.getPortNumber(),self.getSecret())
     elif self.getDebugger()=="VisualStudio 2017":
       connectionHelp = ("Waiting for VisualStudio 2017 debugger attachment...\n\n"
-        +"To attach debugger:\n"
-        +"- In VisualStudio, open menu: Debug / Attach to process\n"
-        +"- Select Connection type: 'Python remote (ptvsd)\n"
-        +"- Set Connection target: 'tcp://{1}@localhost:{0}'\n"
-        +"- Click Refresh\n"
-        +"- Click Attach").format(self.getPortNumber(),self.getSecret())        
+        + "To attach debugger:\n"
+        + "- In VisualStudio, open menu: Debug / Attach to process\n"
+        + "- Select Connection type: 'Python remote (ptvsd)'\n"
+        +f"- Set Connection target: 'tcp://{self.getSecret()}@localhost:{self.getPortNumber()}'\n"
+        + "- Click Refresh\n"
+        + "- Click Attach")
+    elif self.getDebugger()=="VisualStudio" or self.getDebugger()=="VisualStudio 2019/2022":
+      connectionHelp = ("Waiting for VisualStudio 2019/2022 debugger attachment...\n\n"
+        + "To attach debugger:\n"
+        + "- In VisualStudio, open menu: Debug / Attach to process\n"
+        + "- Select 'Attach to' -> 'Python code'\n"
+        + "- Set 'Process' -> 'SlicerApp-real.exe'\n"
+        + "- Click Attach")
     elif self.getDebugger()=="VisualStudio Code":
       connectionHelp = ("Waiting for VisualStudio Code debugger attachment...\n\n"
-        +"\n"
-        +"Make sure you have configured `Python: Attach` debugging configuration:\n"
-        +'"port": {0}\n'
-        +"\n"
-        +"To attach debugger:\n"
-        +"- In VisualStudio Code, choose debugging configuration 'Python: Attach'\n"
-        +"- Click Start Debugging").format(self.getPortNumber())
+        + "Make sure you have configured `Python: Attach` debugging configuration like this:\n"
+        + '\n'
+        + '  {\n'
+        + '    "name": "Python: Attach",\n'
+        + '    "type": "python",\n'
+        + '    "request": "attach",\n'
+        +f'    "port": {self.getPortNumber()}\n'
+        + '    "host": "localhost"\n'
+        + '  }\n'
+        + '\n'
+        + "To attach debugger:\n"
+        + "- In VisualStudio Code, choose debugging configuration 'Python: Attach'\n"
+        + "- Click Start Debugging")
     else:
-      connectionHelp = "Connecting to remote debug server at port {0}...\nSlicer is paused until {1} accepts the connection.".format(self.getPortNumber(),self.getDebugger())
+      connectionHelp = f"Connecting to remote debug server at port {self.getPortNumber()}...\nSlicer is paused until {self.getDebugger()} accepts the connection."
     self.label = qt.QLabel(connectionHelp)
+    self.label.setParent(slicer.util.mainWindow())
     self.infoLayout.addWidget(self.label)
     self.info.show()
     self.info.repaint()
     slicer.app.processEvents()
-    qt.QTimer.singleShot(2000, self.onConnectionComplete)
 
     # Connect to the debugger
     
-    if self.isDebuggerVisualStudio():
+    if self.isDebuggerPtvsd():  # Old Visual Studio
+      qt.QTimer.singleShot(2000, self.onConnectionComplete)
       self.addPtvsdToPath()
       import ptvsd
-      if not self.isCorrectVisualStudioDebuggerVersion():
+      if not self.isCorrectPtvsdVersion():
         slicer.util.errorDisplay("Slicer must be restarted after switching between VisualStudio debugger versions.")
         return False
-      if self.getDebugger() == "VisualStudio Code":
-        # no secret for VisualStudio Code debugger
-        ptvsd.enable_attach(address=('0.0.0.0', self.getPortNumber()))
-      else:
-        ptvsd.enable_attach(address=('0.0.0.0', self.getPortNumber()), secret=self.getSecret())
+      ptvsd.enable_attach(address=('0.0.0.0', self.getPortNumber()), secret=self.getSecret())
       ptvsd.wait_for_attach()
-    else:
+
+    elif self.isDebuggerDebugpy():  # new Visual Studio
+      try:
+        import debugpy
+      except ImportError:
+        slicer.util.pip_install('debugpy')
+      try:
+        import debugpy
+      except ImportError:
+        qt.QMessageBox.warning(slicer.util.mainWindow(),
+            "Failed to start debug server", 'Could not start debug server due debugpy import failed.')
+        self.onConnectionComplete()
+        return False
+
+      if self.getDebugger() == "VisualStudio Code":
+        connected = True
+        debugpy.listen(self.getPortNumber())
+        debugpy.wait_for_client()
+
+      else:  # Visual Studio (does not require starting listening)
+        import time
+        connected = False
+        for i in range(120):
+            time.sleep(0.5)
+            slicer.app.processEvents(qt.QEventLoop.ExcludeUserInputEvents)
+            if debugpy.is_client_connected():
+                connected = True
+                break
+
+      self.onConnectionComplete()
+      if not connected:
+        qt.QMessageBox.warning(slicer.util.mainWindow(),
+            "Failed to start debug server", 'Timeout while waiting for debugger client to connect.')
+        return False
+
+    else:  # Eclipse
+      qt.QTimer.singleShot(2000, self.onConnectionComplete)
       try:
         import pydevd
         pydevd.settrace('localhost', port=self.getPortNumber(), stdoutToServer=True, stderrToServer=True, suspend=False)
