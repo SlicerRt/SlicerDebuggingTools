@@ -13,8 +13,9 @@ Authors: Andras Lasso (PerkLab, Queen's University),  Mikael Brudfors ([Laborato
 ![Debugging Slicer in PyDev](Docs/PyDevRemoteDebugSlicer.png)
 
 Python debuggers:
-- PyCharm: Easiest to set up and most convenient (due to availability of automatic reconnect at startup). Requires professional version, which is only free for academic users.
-- Visual Studio Code: A bit less convenient to use and more complicated to set up.
+- PyCharm: Easiest to set up and most convenient. Requires professional version, which is only free for academic users.
+- Visual Studio: A bit less capable than PyCharm (the debugger cannot automatically reconnect after Slicer is restarted, there is no auto-complete in the Python console).
+- Visual Studio Code: Same capabilities as in Visual Studio Code, but it is a bit more complicated to set up (need to open a workspace/folder, which unloads all edited files; need to edit a json file to configure the debugger configuration)
 - Eclipse: Has less features than other editors and not as convenient, but has the unique feature of being able to jump to any line within the current function.
 
 ### Instructions for PyCharm
@@ -30,7 +31,7 @@ Python debuggers:
   - Set Port: `5678`
   - Click OK
 - In Slicer:
-  - Install the `DebuggingTools` extension
+  - [Install the `DebuggingTools` extension](https://slicer.readthedocs.io/en/latest/user_guide/extensions_manager.html#install-extensions)
   - Open the `Python debugger` module (in `Developer Tools` category)
   - In the `Settings` section select debugger: `PyCharm`
   - If `pycharm-debug.egg` path is not detected automatically then set the path with the selector (it is usually in the `debug-eggs` subfolder of the PyCharm installation)
@@ -94,7 +95,7 @@ If attaching the debugger with "Connection refused" error message then:
 ![Example of Python debugging using Visual Studio Code](Docs/VisualStudioCodePythonDebuggerExample.png)
 
 - In Slicer:
-  - Install the Python debugger extension
+  - [Install the `DebuggingTools` extension](https://slicer.readthedocs.io/en/latest/user_guide/extensions_manager.html#install-extensions)
   - Open the `Python debugger` module (in `Developer Tools` category)
   - In `Settings` section select debugger: `VisualStudio Code`
 
@@ -137,14 +138,12 @@ If attaching the debugger with "Connection refused" error message then:
 ### Instructions for Visual Studio
 
 #### One-time setup
-- Install Visual Studio.
-- If using Visual Studio 2013 or 2015: install [https://github.com/Microsoft/PTVS/releases/v2.2.2 Python Tools for Visual Studio]
-- If using Visual Studio 2017 or later: install Python native development tools by following the steps below
-  - Open Visual Studio Installer by selecting `Tools` menu / `Get Tools and Features...`
-  - Make sure the checkbox is checked for `Python development` (in `Web & Cloud` category)
-  - In `Summary` section in the right, make sure `Python native development tools` checkbox is checked
+- Enable `Python development` component for Visual Studio (if has not been enabled already):
+  - Start `Visual Studio Installer` application
+  - Click `Modify` button of your Visual Studio configuration
+  - Check the `Python development` checkbox
 - In Slicer:
-  - Install the Python debugger extension
+  - [Install the `DebuggingTools` extension](https://slicer.readthedocs.io/en/latest/user_guide/extensions_manager.html#install-extensions)
   - Open the `Python debugger` module (in `Developer Tools` category)
   - In the `Settings` section select debugger: `VisualStudio`
 
@@ -152,22 +151,9 @@ If attaching the debugger with "Connection refused" error message then:
 - In Slicer:
   - Open the `Python debugger` module (in `Developer Tools` category)
   - Click on `Connect` button. Slicer will become unresponsive until the debugger is attached.
-- In Visual Studio 2013/2015:
-  - In menu, select `Debug > Attach to Process` to display the `Attach to Process` window
-  - `Transport` -> `Python remote (ptvsd)`
-  - `Qualifier` -> `tcp://slicer@localhost:5678`
-  - Press Enter (or click `Refresh` button). The Slicer process should appear in the list below.
-  - Press Enter (or click `Attach` button). The popup window in Slicer should disappear.
-- In Visual Studio 2017:
-  - In menu, select `Debug > Attach to Process` to display the `Attach to Process` window
-  - `Connection type` -> `Python remote (ptvsd)`
-  - `Connection target` -> `tcp://slicer@localhost:5678`
-  - Press Enter (or click `Refresh` button). The Slicer process should appear in the list below.
-  - Press Enter (or click `Attach` button). The popup window in Slicer should disappear.
-  - For connecting again, `Debug` / `Reattach to Process` function can be used
-- In Visual Studio 2019 or later:
-  - In menu, select `Debug > Attach to Process` to display the `Attach to Process` window
+- In Visual Studio:
+  - In menu, select `Debug > Attach to Process` (Ctrl+Alt+P) to display the `Attach to Process` window
   - `Attach to` -> `Python code`
   - `Process` -> `SlicerApp-real.exe`
   - Press Enter (or click `Attach` button). The popup window in Slicer should disappear.
-  - For connecting again, `Debug > Reattach to Process` function can be used
+  - For connecting again, `Debug > Reattach to Process` (Shift+Alt+P) function can be used

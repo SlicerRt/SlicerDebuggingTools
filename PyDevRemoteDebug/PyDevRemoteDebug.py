@@ -20,14 +20,21 @@ class PyDevRemoteDebug(ScriptedLoadableModule):
     parent.dependencies = []
     parent.contributors = ["Andras Lasso (PerkLab at Queen's University)"]
     parent.helpText = """
-    This module connects to PyDev remote debugger for running Python scripts in the Eclipse integrated development environment.
-    <a href="http://www.slicer.org/slicerWiki/index.php/Documentation/Nightly/Extensions/DebuggingTools">More information...</a>
+    This module connects to debugpy or PyDev remote debugger for debugging Python scripts in the VisualStudio, VisualStudio Code, PyCharm, or Eclipse integrated development environment.
+    <a href="https://github.com/SlicerRt/SlicerDebuggingTools">More information...</a>
     """
     parent.acknowledgementText = """
     This work is part of the SparKit project, funded by An Applied Cancer Research Unit of Cancer Care Ontario with funds provided by the Ministry of Health and Long-Term Care and the Ontario Consortium for Adaptive Interventions in Radiation Oncology (OCAIRO) to provide free, open-source toolset for radiotherapy and related image-guided interventions.
     """
 
     self.logic = PyDevRemoteDebugLogic()
+    slicer.app.connect("startupCompleted()", self.onDebuggerAutoConnect)
+
+  def onDebuggerAutoConnect(self):
+    # allow some time for all modules to initialize and then connect
+    debuggerAutoConnectDelayMsec = 2000
+    qt.QTimer.singleShot(debuggerAutoConnectDelayMsec, self.logic.onDebuggerAutoConnect)
+
 
 #
 # PyDevRemoteDebugWidget
@@ -40,15 +47,6 @@ class PyDevRemoteDebugWidget(ScriptedLoadableModuleWidget):
 
   def __init__(self, parent):
     ScriptedLoadableModuleWidget.__init__(self, parent)
-
-    #if 'PyDevRemoteDebugLogic' in vars(slicer):
-    #  self.logic = PyDevRemoteDebugLogic()
-    #else
-    #  self.logic = slicer.PyDevRemoteDebugLogic
-
-    # If user switches quickly to the module widget then the logic may not have been created yet
-    #if not slicer.modules.PyDevRemoteDebugInstance.logic:
-    #  slicer.modules.PyDevRemoteDebugInstance.logic = PyDevRemoteDebugLogic()
     self.logic = slicer.modules.PyDevRemoteDebugInstance.logic
 
   def setup(self):
@@ -59,7 +57,6 @@ class PyDevRemoteDebugWidget(ScriptedLoadableModuleWidget):
 
     # Instantiate and connect widgets ...
 
-
     # Settings Area
     self.settingsCollapsibleButton = ctk.ctkCollapsibleButton()
     self.settingsCollapsibleButton.text = "Settings"
@@ -69,45 +66,24 @@ class PyDevRemoteDebugWidget(ScriptedLoadableModuleWidget):
     
     # Debugger selector
     self.debuggerSelector = qt.QComboBox()
-    self.debuggerSelector.toolTip = "Chose debugger server."
-    debugger = self.logic.getDebugger()
-    self.debuggerSelector.addItem("Eclipse")
+    self.debuggerSelector.toolTip = "Choose debugger."
     self.debuggerSelector.addItem("PyCharm")
-    self.debuggerSelector.addItem("VisualStudio 2013/2015")
-    self.debuggerSelector.addItem("VisualStudio 2017")
-    self.debuggerSelector.addItem("VisualStudio 2019/2022")
     self.debuggerSelector.addItem("VisualStudio Code")
-    if debugger=='Eclipse':
-      self.debuggerSelector.currentIndex = 0
-    elif debugger=='PyCharm':
-      self.debuggerSelector.currentIndex = 1
-    elif debugger=='VisualStudio 2013/2015':
-      self.debuggerSelector.currentIndex = 2
-    elif debugger=='VisualStudio 2017':
-      self.debuggerSelector.currentIndex = 3
-    elif debugger=='VisualStudio' or debugger=='VisualStudio 2019/2022':
-      self.debuggerSelector.currentIndex = 4
-    elif debugger=='VisualStudio Code':
-      self.debuggerSelector.currentIndex = 5
-    else:
-      self.debuggerSelector.currentIndex = -1
+    self.debuggerSelector.addItem("VisualStudio")
+    self.debuggerSelector.addItem("Eclipse")
     settingsFormLayout.addRow("Debugger: ", self.debuggerSelector)
     self.debuggerSelector.connect('currentIndexChanged(int)', self.onDebuggerSelected)
     
     # pydevd.py path selector
-    pydevdDir=self.logic.getEclipsePydevdDir(enableAutoDetect=(debugger=='Eclipse'))
     self.pydevdDirSelector = ctk.ctkPathLineEdit()
-    self.pydevdDirSelector.setCurrentPath(pydevdDir)
-    self.pydevdDirSelector.filters=self.pydevdDirSelector.Dirs
+    self.pydevdDirSelector.filters = self.pydevdDirSelector.Dirs
     self.pydevdDirSelector.setMaximumWidth(300)
     self.pydevdDirSelector.setToolTip("Set the path to pydevd.py. It is in the eclipse folder within plugins/...pydev.../pysrc.")
     self.pydevdDirLabel = qt.QLabel("Eclipse pydevd.py directory:")
     settingsFormLayout.addRow(self.pydevdDirLabel, self.pydevdDirSelector)
 
     # pycharm-debug.egg path selector
-    pyCharmDebugEggPath=self.logic.getPyCharmDebugEggPath(enableAutoDetect=(debugger=='PyCharm'))
     self.pyCharmDebugEggPathSelector = ctk.ctkPathLineEdit()
-    self.pyCharmDebugEggPathSelector.setCurrentPath(pyCharmDebugEggPath)
     self.pyCharmDebugEggPathSelector.nameFilters=['pydevd-pycharm.egg', 'pycharm-debug.egg']
     self.pyCharmDebugEggPathSelector.setMaximumWidth(300)
     self.pyCharmDebugEggPathSelector.setToolTip("Set the path to pydevd-pycharm.egg or pycharm-debug.egg . It is in the .../PyCharm/debug-eggs folder.")
@@ -118,21 +94,8 @@ class PyDevRemoteDebugWidget(ScriptedLoadableModuleWidget):
     self.portInputSpinBox = qt.QSpinBox()
     self.portInputSpinBox.minimum = 0
     self.portInputSpinBox.maximum = 65535
-    portNumber=self.logic.getPortNumber()
-    self.portInputSpinBox.setValue(int(portNumber))
     self.portInputLabel = qt.QLabel("Port:")
     settingsFormLayout.addRow(self.portInputLabel, self.portInputSpinBox)
-
-    # ptvsd connection secret word
-    secret=self.logic.getSecret()
-    self.secretEditor = qt.QLineEdit()
-    self.secretEditor.text = secret
-    self.secretEditor.setToolTip("Set the secret word for VisualStudio remote debugger.")
-    self.secretLabel = qt.QLabel("Secret:")
-    settingsFormLayout.addRow(self.secretLabel, self.secretEditor)
-    
-    if not self.isCurrentSettingValid():
-      self.settingsCollapsibleButton.collapsed = False
     
     # Connection Area
     connectionCollapsibleButton = ctk.ctkCollapsibleButton()
@@ -158,9 +121,10 @@ class PyDevRemoteDebugWidget(ScriptedLoadableModuleWidget):
     self.autoConnectCheckBoxLabel.visible = False
     connectionFormLayout.addRow(self.autoConnectCheckBoxLabel, self.autoConnectCheckBox)
 
-    if self.logic.isConnected():
-      # already connected
-      self.onConnectionComplete(True)
+    self.updateGUIFromLogic()
+
+    if not self.isCurrentSettingValid():
+      self.settingsCollapsibleButton.collapsed = False
     
     # Connections
     self.connectButton.connect('clicked(bool)', self.onConnect)
@@ -168,23 +132,32 @@ class PyDevRemoteDebugWidget(ScriptedLoadableModuleWidget):
 
     # Add vertical spacer
     self.layout.addStretch(1)
-    
-    self.onDebuggerSelected()
 
   def cleanup(self):
     pass
 
-  def onDebuggerSelected(self):
-  
-    self.logic.saveDebugger(self.debuggerSelector.currentText)
+  def updateGUIFromLogic(self):
 
-    connected = self.logic.isConnected()
+    debugger = self.logic.getDebugger()
+
+    wasBlocked = self.debuggerSelector.blockSignals(True)
+    self.debuggerSelector.setCurrentText(debugger)
+    self.debuggerSelector.blockSignals(wasBlocked)
+
+    pydevdDir = self.logic.getEclipsePydevdDir(enableAutoDetect = (debugger=='Eclipse') )
+    self.pydevdDirSelector.setCurrentPath(pydevdDir)
 
     portNumber=self.logic.getPortNumber()
     self.portInputSpinBox.setValue(int(portNumber))
-    
-    debugger = self.debuggerSelector.currentText
-    if debugger=='Eclipse':
+
+    pyCharmDebugEggPath=self.logic.getPyCharmDebugEggPath(enableAutoDetect=(debugger=='PyCharm'))
+    self.pyCharmDebugEggPathSelector.setCurrentPath(pyCharmDebugEggPath)
+
+    connected = self.logic.isConnected()
+    self.connectButton.text = "Connected to debug server" if connected else "Connect to debug server"
+    self.autoConnectCheckBox.visible = connected
+    self.autoConnectCheckBoxLabel.visible = connected
+    if debugger == 'Eclipse':
       if not connected:
         self.connectButton.text = "Connect to Eclipse debugger"
         self.connectButton.toolTip = "Connect to PyDev remote debug server"
@@ -202,31 +175,23 @@ class PyDevRemoteDebugWidget(ScriptedLoadableModuleWidget):
         eggDir=self.logic.getPyCharmDebugEggPath(enableAutoDetect=True)
         if eggDir:
           self.pyCharmDebugEggPathSelector.setCurrentPath(eggDir)
-    elif debugger=='VisualStudio' or debugger=='VisualStudio 2013/2015':
+    elif debugger=='VisualStudio':
       if not connected:
-        self.connectButton.text = "Connect to VisualStudio 2013/2015 debugger"
-        self.connectButton.toolTip = "Connect to VisualStudio Python debugger. Make sure Python Tools for VisualStudio is installed (https://github.com/Microsoft/PTVS)"
-    elif debugger=='VisualStudio 2017':
-      if not connected:
-        self.connectButton.text = "Connect to VisualStudio 2017 debugger"
-        self.connectButton.toolTip = "Connect to VisualStudio Python debugger. Make sure 'Python native development tools' are installed in VisualStudio / Tools / Get Tools and Features"
-    elif debugger=='VisualStudio' or debugger=='VisualStudio 2019/2022':
-      if not connected:
-        self.connectButton.text = "Connect to VisualStudio 2019/2022 debugger"
-        self.connectButton.toolTip = "Connect to VisualStudio Python debugger (Debug/Attach to Process -> Attach to: Python code, Process: SlicerApp-real.exe). Make sure 'Python development tools' are installed in Visual Studio Installer."
+        self.connectButton.text = "Connect to VisualStudio debugger"
+        self.connectButton.toolTip = "Connect to VisualStudio Python debugger (using debugpy)."
     elif debugger=='VisualStudio Code':
       if not connected:
         self.connectButton.text = "Connect to VisualStudio Code debugger"
-        self.connectButton.toolTip = "Connect to VisualStudio Python remote debugger."
+        self.connectButton.toolTip = "Connect to VisualStudio Code Python remote debugger (using debugpy)."
 
-    isDebugpy = (debugger=='VisualStudio' or debugger=='VisualStudio 2019/2022')
     self.pydevdDirSelector.visible = (debugger=="Eclipse")
     self.pydevdDirLabel.visible = (debugger=="Eclipse")
     self.pyCharmDebugEggPathSelector.visible = (debugger=="PyCharm")
     self.pyCharmDebugEggPathLabel.visible = (debugger=="PyCharm")
-    isPtvsd = (debugger=='VisualStudio 2013/2015' or debugger=='VisualStudio 2017')
-    self.secretEditor.visible = isPtvsd
-    self.secretLabel.visible = isPtvsd
+
+  def onDebuggerSelected(self):  
+    self.logic.setDebugger(self.debuggerSelector.currentText)
+    self.updateGUIFromLogic()
 
   def isCurrentSettingValid(self):
     if not self.logic.getDebugger():
@@ -235,17 +200,17 @@ class PyDevRemoteDebugWidget(ScriptedLoadableModuleWidget):
       return True
     if self.logic.getDebugger()=="PyCharm" and self.logic.isValidPyCharmDebugEggPath(self.pyCharmDebugEggPathSelector.currentPath):
       return True
-    if self.logic.isDebuggerVisualStudio():
+    if self.logic.isDebuggerDebugpy():
       return True
     return False
 
   def onAutoConnectChanged(self, enabled):
-    self.logic.saveDebuggerAutoConnect(enabled)
+    self.logic.setDebuggerAutoConnect(enabled)
 
   def onConnect(self):
 
-    debugger = self.debuggerSelector.currentText
-    isDebugpy = (debugger=='VisualStudio' or debugger=='VisualStudio 2019/2022')
+    debugger = self.logic.getDebugger()
+    isDebugpy = self.logic.isDebuggerDebugpy()
     if debugger=='Eclipse':
       pydevdDir=self.pydevdDirSelector.currentPath
       # Verify path
@@ -254,7 +219,7 @@ class PyDevRemoteDebugWidget(ScriptedLoadableModuleWidget):
           "Connect to PyDev", 'Please set the correct path to pydevd.py in the settings panel')
         self.settingsCollapsibleButton.collapsed = False
         return
-      self.logic.savePydevdDir(pydevdDir)
+      self.logic.setPydevdDir(pydevdDir)
     elif debugger=='PyCharm':
       pydevdDir=self.pyCharmDebugEggPathSelector.currentPath
       # Verify path
@@ -263,33 +228,28 @@ class PyDevRemoteDebugWidget(ScriptedLoadableModuleWidget):
           "Connect to PyCharm", 'Please set the correct path to PyCharm debug egg file in the settings panel')
         self.settingsCollapsibleButton.collapsed = False
         return
-      self.logic.savePyCharmDebugEggPath(pydevdDir)
-    elif (debugger=='VisualStudio 2013/2015' or debugger=='VisualStudio 2017'):
-      self.logic.saveSecret(self.secretEditor.text)
-    elif (debugger=='VisualStudio Code' or debugger=='VisualStudio' or debugger=='VisualStudio 2019/2022'):
+      self.logic.setPyCharmDebugEggPath(pydevdDir)
+    elif isDebugpy:
       # there is nothing specific to save
       pass
     else:
+      # No debugger is selected
       qt.QMessageBox.warning(slicer.util.mainWindow(),
           "Connect to Python remote debug server", 'Please select a debugger in the settings panel')
       self.settingsCollapsibleButton.collapsed = False
       return
 
     portNumber = self.portInputSpinBox.value
-    self.logic.savePortNumber(portNumber)
+    self.logic.setPortNumber(portNumber)
 
-    self.logic.connectionCompleteCallback = self.onConnectionComplete
     self.connectButton.enabled = False
-    self.logic.connect()
-    self.connectButton.enabled = True
+    try:
+      with slicer.util.tryWithErrorDisplay("Failed to connect to debugger.", waitCursor=True): 
+        self.logic.connect()
+    finally:
+      self.connectButton.enabled = True
+      self.updateGUIFromLogic()
 
-  def onConnectionComplete(self, connected):
-    if connected:
-      self.connectButton.text = "Connected to debug server"
-      self.autoConnectCheckBox.visible = True
-      self.autoConnectCheckBoxLabel.visible = True
-    else:
-      self.connectButton.text = "Connect to debug server"
 
 #
 # PyDevRemoteDebugLogic
@@ -308,15 +268,7 @@ class PyDevRemoteDebugLogic(ScriptedLoadableModuleLogic):
   def __init__(self):
     ScriptedLoadableModuleLogic.__init__(self)
 
-    # This function is called when connection request is completed. It takes a single bool argument,
-    # which is set to True if the connection is established.
-    self.connectionCompleteCallback = None
-
     self.enableDebuggerAutoConnectAfterSuccessfulConnection = False
-
-    # allow some time for all modules to initialize and then connect
-    debuggerAutoConnectDelayMsec = 3000
-    qt.QTimer.singleShot(debuggerAutoConnectDelayMsec, self.onDebuggerAutoConnect)
 
   def onDebuggerAutoConnect(self):
     if not self.getDebuggerAutoConnect():
@@ -328,7 +280,7 @@ class PyDevRemoteDebugLogic(ScriptedLoadableModuleLogic):
     logging.debug("Auto-connect to Python remote debug server")
     # Disable auto-connect to prevent hanging Slicer on every startup in case there is no debugger available anymore
     self.enableDebuggerAutoConnectAfterSuccessfulConnection = True
-    self.saveDebuggerAutoConnect(False)
+    self.setDebuggerAutoConnect(False)
     self.connect()
     logging.debug("Auto-connect to Python remote debug server completed")
 
@@ -338,7 +290,7 @@ class PyDevRemoteDebugLogic(ScriptedLoadableModuleLogic):
       return settings.value('Developer/PythonRemoteDebugAutoConnect').lower() == 'true'
     return False
 
-  def saveDebuggerAutoConnect(self, autoConnect):
+  def setDebuggerAutoConnect(self, autoConnect):
     # don't save it if already saved
     settings = qt.QSettings()
     if self.getDebuggerAutoConnect()==autoConnect:
@@ -355,20 +307,13 @@ class PyDevRemoteDebugLogic(ScriptedLoadableModuleLogic):
         or debugger=="VisualStudio" or debugger=='VisualStudio 2019/2022'):
         return debugger
     return ''
-    
-  def isDebuggerPtvsd(self):
-    debugger = self.getDebugger()
-    return (debugger == "VisualStudio 2013/2015" or debugger == "VisualStudio 2017")
 
   def isDebuggerDebugpy(self):
     debugger = self.getDebugger()
     return (debugger == "VisualStudio" or debugger == "VisualStudio 2019/2022" or debugger == "VisualStudio Code")
 
-  def isDebuggerVisualStudio(self):
-    return self.isDebuggerPtvsd() or self.isDebuggerDebugpy()
-
   def getPortNumber(self):
-    if self.isDebuggerVisualStudio():
+    if self.isDebuggerDebugpy():
       settingsKeyPrefix = 'Developer/VisualStudio'
     else:
       settingsKeyPrefix = 'Developer/Pydevd'
@@ -377,23 +322,15 @@ class PyDevRemoteDebugLogic(ScriptedLoadableModuleLogic):
       port = settings.value(settingsKeyPrefix+'PortNumber')
       return int(port)
     return 5678
-    
-  def getSecret(self):
-    settings = qt.QSettings()
-    if settings.contains('Developer/PtvsdSecret'):
-      secret = settings.value('Developer/PtvsdSecret')
-      return secret
-    return "slicer"
 
-    
-  def saveDebugger(self, debugger):
+  def setDebugger(self, debugger):
     # don't save it if already saved
     settings = qt.QSettings()
     if settings.contains('Developer/PythonRemoteDebugServer'):
       debuggerSaved = settings.value('Developer/PythonRemoteDebugServer')
       if debuggerSaved == debugger:
         return
-    settings.setValue('Developer/PythonRemoteDebugServer',debugger)
+    settings.setValue('Developer/PythonRemoteDebugServer', debugger)
 
   def isValidPydevdDir(self, pydevdDir):
     import os.path
@@ -432,7 +369,7 @@ class PyDevRemoteDebugLogic(ScriptedLoadableModuleLogic):
     # not found
     return ''
 
-  def savePydevdDir(self, pydevdDir):
+  def setPydevdDir(self, pydevdDir):
     # don't save it if already saved
     settings = qt.QSettings()
     if settings.contains('Developer/EclipsePyDevDir'):
@@ -441,7 +378,7 @@ class PyDevRemoteDebugLogic(ScriptedLoadableModuleLogic):
         return
     settings.setValue('Developer/EclipsePyDevDir',pydevdDir)
 
-  def savePyCharmDebugEggPath(self, pydevdDir):
+  def setPyCharmDebugEggPath(self, pydevdDir):
     # don't save it if already saved
     settings = qt.QSettings()
     if settings.contains('Developer/PyCharmDebugEggPath'):
@@ -450,8 +387,8 @@ class PyDevRemoteDebugLogic(ScriptedLoadableModuleLogic):
         return
     settings.setValue('Developer/PyCharmDebugEggPath',pydevdDir)
 
-  def savePortNumber(self, portNumber):
-    if self.isDebuggerVisualStudio():
+  def setPortNumber(self, portNumber):
+    if self.isDebuggerDebugpy():
       settingsKeyPrefix = 'Developer/VisualStudio'
     else:
       settingsKeyPrefix = 'Developer/Pydevd'
@@ -462,19 +399,6 @@ class PyDevRemoteDebugLogic(ScriptedLoadableModuleLogic):
       if portNumberSaved == portNumber:
         return
     settings.setValue(settingsKeyPrefix+'PortNumber',portNumber)
-
-  def saveSecret(self, secret):
-    if self.isDebuggerVisualStudio():
-      settingsKeyPrefix = 'Developer/VisualStudio'
-    else:
-      settingsKeyPrefix = 'Developer/Pydevd'
-    # don't save it if already saved
-    settings = qt.QSettings()
-    if settings.contains(settingsKeyPrefix+'Secret'):
-      secretSaved = settings.value(settingsKeyPrefix+'Secret')
-      if secretSaved == secret:
-        return
-    settings.setValue(settingsKeyPrefix+'Secret',secret)
 
   def isValidPyCharmDebugEggPath(self, pyCharmDebugEggPath):
     import os.path
@@ -566,23 +490,8 @@ class PyDevRemoteDebugLogic(ScriptedLoadableModuleLogic):
       sys.path.insert(0,pydevdPath)
     return True
 
-  def addPtvsdToPath(self):
-    moduleDir = os.path.dirname(__file__)
-    if self.getDebugger()=="VisualStudio 2013/2015":
-      ptvsdPath = os.path.join(moduleDir, 'ptvsd-2.2.2')
-    elif self.getDebugger()=="VisualStudio 2017":
-      ptvsdPath = os.path.join(moduleDir, 'ptvsd-3.2.1')
-    import sys
-    sys.path.insert(0, ptvsdPath)
-    
   def isConnected(self):
-    if self.isDebuggerPtvsd():    
-      try:
-        import ptvsd
-      except ImportError:
-        return False
-      return ptvsd.is_attached()
-    elif self.isDebuggerDebugpy():
+    if self.isDebuggerDebugpy():
       try:
         import debugpy
       except ImportError:
@@ -606,63 +515,20 @@ class PyDevRemoteDebugLogic(ScriptedLoadableModuleLogic):
         return pydevd.connected           # older version
       else:
         return False
-      
-  def isCorrectPtvsdVersion(self):
-    import ptvsd
-    if self.getDebugger()=="VisualStudio 2013/2015":
-      try:
-        from ptvsd.attach_server import PTVS_VER
-        return (PTVS_VER == "2.2")
-      except ImportError:
-        # did not import ptvsd 2.2
-        slicer.util.errorDisplay("Slicer must be restarted after switching between VisualStudio debugger versions.")
-        return False
-    elif self.getDebugger()=="VisualStudio 2017":
-      try:
-        return (ptvsd.__version__.split('.')[0] == '3')
-      except AttributeError:
-        # did not import ptvsd 3
-        slicer.util.errorDisplay("Slicer must be restarted after switching between VisualStudio debugger versions.")
-        return False
-    else:
-      try:
-        return (ptvsd.__version__.split('.')[0] == '4')
-      except AttributeError:
-        # did not import ptvsd 3
-        slicer.util.errorDisplay("Slicer must be restarted after switching between VisualStudio debugger versions.")
-        return False
 
   def connect(self):
 
-    # Return if already connected    
+    # Refuse to connect if already connected    
     if self.isConnected():
-      qt.QMessageBox.warning(slicer.util.mainWindow(),
-      "Connect to debugger", 'You are already connected to the remote debugger. If the connection is broken (e.g., because the server terminated the connection) then you need to restart Slicer to be able to connect again.')
-      return False
+      raise RuntimeError("You are already connected to the remote debugger. If the connection is broken (e.g., because the server terminated the connection) then you need to restart Slicer to be able to connect again.")
 
     # Show a dialog that explains that Slicer will hang
-    self.info = qt.QDialog()
-    self.info.setModal(False)
-    self.infoLayout = qt.QVBoxLayout()
-    self.info.setLayout(self.infoLayout)
-    if self.getDebugger()=="VisualStudio 2013/2015":
-      connectionHelp = ("Waiting for VisualStudio 2013/2015 debugger attachment...\n\n"
-        + "To attach debugger:\n"
-        + "- In VisualStudio, open menu: Debug / Attach to process\n"
-        + "- Select Transport: 'Python remote (ptvsd)\n"
-        + "- Set Qualifier: 'tcp://{1}@localhost:{0}'\n"
-        + "- Click Refresh\n"
-        + "- Click Attach").format(self.getPortNumber(),self.getSecret())
-    elif self.getDebugger()=="VisualStudio 2017":
-      connectionHelp = ("Waiting for VisualStudio 2017 debugger attachment...\n\n"
-        + "To attach debugger:\n"
-        + "- In VisualStudio, open menu: Debug / Attach to process\n"
-        + "- Select Connection type: 'Python remote (ptvsd)'\n"
-        +f"- Set Connection target: 'tcp://{self.getSecret()}@localhost:{self.getPortNumber()}'\n"
-        + "- Click Refresh\n"
-        + "- Click Attach")
-    elif self.getDebugger()=="VisualStudio" or self.getDebugger()=="VisualStudio 2019/2022":
-      connectionHelp = ("Waiting for VisualStudio 2019/2022 debugger attachment...\n\n"
+    infoDlg = qt.QDialog()
+    infoDlg.setModal(False)
+    infoLayout = qt.QVBoxLayout()
+    infoDlg.setLayout(infoLayout)
+    if self.getDebugger()=="VisualStudio":
+      connectionHelp = ("Waiting for VisualStudio debugger attachment...\n\n"
         + "To attach debugger:\n"
         + "- In VisualStudio, open menu: Debug / Attach to process\n"
         + "- Select 'Attach to' -> 'Python code'\n"
@@ -683,90 +549,69 @@ class PyDevRemoteDebugLogic(ScriptedLoadableModuleLogic):
         + "To attach debugger:\n"
         + "- In VisualStudio Code, choose debugging configuration 'Python: Attach'\n"
         + "- Click Start Debugging")
-    else:
+    else:  # pydevd
       connectionHelp = f"Connecting to remote debug server at port {self.getPortNumber()}...\nSlicer is paused until {self.getDebugger()} accepts the connection."
-    self.label = qt.QLabel(connectionHelp)
-    self.label.setParent(slicer.util.mainWindow())
-    self.infoLayout.addWidget(self.label)
-    self.info.show()
-    self.info.repaint()
+
+    label = qt.QLabel(connectionHelp)
+    label.setParent(slicer.util.mainWindow())
+    infoLayout.addWidget(label)
+    infoDlg.show()
+    infoDlg.repaint()
     slicer.app.processEvents()
 
     # Connect to the debugger
     
-    if self.isDebuggerPtvsd():  # Old Visual Studio
-      qt.QTimer.singleShot(2000, self.onConnectionComplete)
-      self.addPtvsdToPath()
-      import ptvsd
-      if not self.isCorrectPtvsdVersion():
-        slicer.util.errorDisplay("Slicer must be restarted after switching between VisualStudio debugger versions.")
-        return False
-      ptvsd.enable_attach(address=('0.0.0.0', self.getPortNumber()), secret=self.getSecret())
-      ptvsd.wait_for_attach()
+    try:
+      if self.isDebuggerDebugpy():
+        # Visual Studio or Visual Studio Code
 
-    elif self.isDebuggerDebugpy():  # new Visual Studio
-      try:
-        import debugpy
-      except ImportError:
-        slicer.util.pip_install('debugpy')
-      try:
-        import debugpy
-      except ImportError:
-        qt.QMessageBox.warning(slicer.util.mainWindow(),
-            "Failed to start debug server", 'Could not start debug server due debugpy import failed.')
-        self.onConnectionComplete()
-        return False
+        try:
+          import debugpy
+        except ImportError:
+          slicer.util.pip_install('debugpy')
+        try:
+          import debugpy
+        except ImportError:
+          raise RuntimeError("Failed to import debugpy import failed.")
 
-      if self.getDebugger() == "VisualStudio Code":
-        connected = True
-        debugpy.listen(self.getPortNumber())
-        debugpy.wait_for_client()
+        if self.getDebugger() == "VisualStudio Code":
+          debugpy.listen(self.getPortNumber())
+          debugpy.wait_for_client()
 
-      else:  # Visual Studio (does not require starting listening)
-        import time
-        connected = False
-        for i in range(120):
-            time.sleep(0.5)
-            slicer.app.processEvents(qt.QEventLoop.ExcludeUserInputEvents)
-            if debugpy.is_client_connected():
-                connected = True
-                break
+        else:
+          # Visual Studio does not work with `wait_for_client()`
+          import time
+          connected = False
+          for i in range(240):
+              time.sleep(0.5)
+              slicer.app.processEvents(qt.QEventLoop.ExcludeUserInputEvents)
+              if debugpy.is_client_connected():
+                  connected = True
+                  break
+          if not connected:
+            raise RuntimeError("Timeout while waiting for debugger client to connect.")
 
-      self.onConnectionComplete()
-      if not connected:
-        qt.QMessageBox.warning(slicer.util.mainWindow(),
-            "Failed to start debug server", 'Timeout while waiting for debugger client to connect.')
-        return False
+      else:
+        # pydevd
+        try:
+          import pydevd
+          pydevd.settrace('localhost', port=self.getPortNumber(), stdoutToServer=True, stderrToServer=True, suspend=False)
+        except (Exception, SystemExit) as e:
+          infoDlg.hide()
+          import traceback
+          traceback.print_exc()
+          raise RuntimeError("An error occurred while trying to connect to PyDev remote debugger. Make sure pydev server is started.")
+          
+      logging.debug("Connected to remote debug server")
 
-    else:  # Eclipse
-      qt.QTimer.singleShot(2000, self.onConnectionComplete)
-      try:
-        import pydevd
-        pydevd.settrace('localhost', port=self.getPortNumber(), stdoutToServer=True, stderrToServer=True, suspend=False)
-      except (Exception, SystemExit) as e:
-        self.info.hide()
-        import traceback
-        traceback.print_exc()
-        qt.QMessageBox.warning(slicer.util.mainWindow(),
-            "Connect to PyDev remote debug server", 'An error occurred while trying to connect to PyDev remote debugger. Make sure pydev server is started.\n\n' + str(e))
-        if self.connectionCompleteCallback:
-          self.connectionCompleteCallback(False)
-        return False
-        
-    logging.debug("Connected to remote debug server")
-    return True    
+    finally:
+      infoDlg.hide()
 
-  def onConnectionComplete(self):
-    self.info.hide()
-
-    if self.isConnected():
-      # successful connection
-      if self.enableDebuggerAutoConnectAfterSuccessfulConnection:
-        self.saveDebuggerAutoConnect(True)
-        self.enableDebuggerAutoConnectAfterSuccessfulConnection = False
-
-    if self.connectionCompleteCallback:
-        self.connectionCompleteCallback(self.isConnected())
+      if self.isConnected():
+        # successful connection
+        if self.enableDebuggerAutoConnectAfterSuccessfulConnection:
+          self.setDebuggerAutoConnect(True)
+          self.enableDebuggerAutoConnectAfterSuccessfulConnection = False
     
 class PyDevRemoteDebugTest(ScriptedLoadableModuleTest):
   """
