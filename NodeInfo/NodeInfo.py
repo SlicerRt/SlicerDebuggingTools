@@ -309,8 +309,15 @@ class NodeInfoLogic(ScriptedLoadableModuleLogic):
     slicer.util.findChildren(infoWidget, 'MRMLNodeAttributeTableView')[0].hide()
     slicer.util.findChildren(infoWidget, 'AddAttributeButton')[0].hide()
     slicer.util.findChildren(infoWidget, 'RemoveAttributeButton')[0].hide()
-    slicer.util.findChildren(infoWidget, 'NodeInformationGroupBox')[0].collapsed = False
-    slicer.util.findChildren(infoWidget, 'NodeInformationGroupBox')[0].layout().addStretch(1)
+
+    if slicer.util.findChildren(infoWidget, 'NodeInformationGroupBox'):
+      # Slicer-5.6 and earlier
+      nodePropertiesGroupBox = slicer.util.findChildren(infoWidget, 'NodeInformationGroupBox')[0]
+    else:
+      # current Slicer version
+      nodePropertiesGroupBox = slicer.util.findChildren(infoWidget, 'NodePropertiesGroupBox')[0]
+    nodePropertiesGroupBox.collapsed = False
+    nodePropertiesGroupBox.layout().addStretch(1)
 
     # Show main frame
     nodeInfoMainFrameLayout.addWidget(buttonFrame)
