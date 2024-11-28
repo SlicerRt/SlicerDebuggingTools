@@ -157,3 +157,4 @@ If attaching the debugger with "Connection refused" error message then:
   - `Process` -> `SlicerApp-real.exe`
   - Press Enter (or click `Attach` button). The popup window in Slicer should disappear.
   - For connecting again, `Debug > Reattach to Process` (Shift+Alt+P) function can be used
+  - Note: A Python project ( *.pyproj ) needs to be active, not a C++ project ( *.vcxproj ), otherwise the debugger will not be able to connect.
