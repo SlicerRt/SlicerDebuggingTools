@@ -63,7 +63,7 @@ class PyDevRemoteDebugWidget(ScriptedLoadableModuleWidget):
     self.settingsCollapsibleButton.collapsed = True
     self.layout.addWidget(self.settingsCollapsibleButton)
     settingsFormLayout = qt.QFormLayout(self.settingsCollapsibleButton)
-    
+
     # Debugger selector
     self.debuggerSelector = qt.QComboBox()
     self.debuggerSelector.toolTip = "Choose debugger."
@@ -73,7 +73,7 @@ class PyDevRemoteDebugWidget(ScriptedLoadableModuleWidget):
     self.debuggerSelector.addItem("Eclipse")
     settingsFormLayout.addRow("Debugger: ", self.debuggerSelector)
     self.debuggerSelector.connect('currentIndexChanged(int)', self.onDebuggerSelected)
-    
+
     # pydevd.py path selector
     self.pydevdDirSelector = ctk.ctkPathLineEdit()
     self.pydevdDirSelector.filters = self.pydevdDirSelector.Dirs
@@ -96,7 +96,7 @@ class PyDevRemoteDebugWidget(ScriptedLoadableModuleWidget):
     self.portInputSpinBox.maximum = 65535
     self.portInputLabel = qt.QLabel("Port:")
     settingsFormLayout.addRow(self.portInputLabel, self.portInputSpinBox)
-    
+
     # Connection Area
     connectionCollapsibleButton = ctk.ctkCollapsibleButton()
     connectionCollapsibleButton.text = "Connection"
@@ -125,7 +125,7 @@ class PyDevRemoteDebugWidget(ScriptedLoadableModuleWidget):
 
     if not self.isCurrentSettingValid():
       self.settingsCollapsibleButton.collapsed = False
-    
+
     # Connections
     self.connectButton.connect('clicked(bool)', self.onConnect)
     self.autoConnectCheckBox.connect('toggled(bool)', self.onAutoConnectChanged)
@@ -189,7 +189,7 @@ class PyDevRemoteDebugWidget(ScriptedLoadableModuleWidget):
     self.pyCharmDebugEggPathSelector.visible = (debugger=="PyCharm")
     self.pyCharmDebugEggPathLabel.visible = (debugger=="PyCharm")
 
-  def onDebuggerSelected(self):  
+  def onDebuggerSelected(self):
     self.logic.setDebugger(self.debuggerSelector.currentText)
     self.updateGUIFromLogic()
 
@@ -244,7 +244,7 @@ class PyDevRemoteDebugWidget(ScriptedLoadableModuleWidget):
 
     self.connectButton.enabled = False
     try:
-      with slicer.util.tryWithErrorDisplay("Failed to connect to debugger.", waitCursor=True): 
+      with slicer.util.tryWithErrorDisplay("Failed to connect to debugger.", waitCursor=True):
         self.logic.connect()
     finally:
       self.connectButton.enabled = True
@@ -504,10 +504,25 @@ class PyDevRemoteDebugLogic(ScriptedLoadableModuleLogic):
     else:
       if not self.updatePydevdPath():
         return False
-      try:
-        import pydevd
-      except ImportError:
+
+      imported = False
+      if not imported:
+        try:
+          # More recent pycharm versions (e.g., 2024.3)
+          import pydevd_pycharm as pydevd
+          imported = True
+        except ImportError:
+          pass
+      if not imported:
+        try:
+          # Older pycharm versions (e.g., 2019.1.2)
+          import pydevd
+          imported = True
+        except ImportError:
+          pass
+      if not imported:
         return False
+
       # return attribute depending on which version of pydevd.py is being used
       if hasattr(pydevd, '_debugger_setup'):
         return pydevd._debugger_setup     # updated PyDev
@@ -518,7 +533,7 @@ class PyDevRemoteDebugLogic(ScriptedLoadableModuleLogic):
 
   def connect(self):
 
-    # Refuse to connect if already connected    
+    # Refuse to connect if already connected
     if self.isConnected():
       raise RuntimeError("You are already connected to the remote debugger. If the connection is broken (e.g., because the server terminated the connection) then you need to restart Slicer to be able to connect again.")
 
@@ -560,7 +575,7 @@ class PyDevRemoteDebugLogic(ScriptedLoadableModuleLogic):
     slicer.app.processEvents()
 
     # Connect to the debugger
-    
+
     try:
       if self.isDebuggerDebugpy():
         # Visual Studio or Visual Studio Code
@@ -601,7 +616,7 @@ class PyDevRemoteDebugLogic(ScriptedLoadableModuleLogic):
           import traceback
           traceback.print_exc()
           raise RuntimeError("An error occurred while trying to connect to PyDev remote debugger. Make sure pydev server is started.")
-          
+
       logging.debug("Connected to remote debug server")
 
     finally:
@@ -612,7 +627,7 @@ class PyDevRemoteDebugLogic(ScriptedLoadableModuleLogic):
         if self.enableDebuggerAutoConnectAfterSuccessfulConnection:
           self.setDebuggerAutoConnect(True)
           self.enableDebuggerAutoConnectAfterSuccessfulConnection = False
-    
+
 class PyDevRemoteDebugTest(ScriptedLoadableModuleTest):
   """
   This is the test case for your scripted module.
@@ -644,9 +659,9 @@ class PyDevRemoteDebugTest(ScriptedLoadableModuleTest):
     """
 
     self.delayDisplay("Starting the test")
-    
+
     # Just call a few basic methods that don't change any settings
-    logic = PyDevRemoteDebugLogic()    
+    logic = PyDevRemoteDebugLogic()
     logic.getDebuggerAutoConnect()
     logic.getDebugger()
     logic.getEclipsePydevdDir()
