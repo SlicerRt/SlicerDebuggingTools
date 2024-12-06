@@ -13,9 +13,9 @@ Authors: Andras Lasso (PerkLab, Queen's University),  Mikael Brudfors ([Laborato
 ![Debugging Slicer in PyDev](Docs/PyDevRemoteDebugSlicer.png)
 
 Python debuggers:
-- PyCharm: Easiest to set up and most convenient. Requires professional version, which is only free for academic users.
-- Visual Studio: A bit less capable than PyCharm (the debugger cannot automatically reconnect after Slicer is restarted, there is no auto-complete in the Python console).
-- Visual Studio Code: Same capabilities as in Visual Studio Code, but it is a bit more complicated to set up (need to open a workspace/folder, which unloads all edited files; need to edit a json file to configure the debugger configuration)
+- Visual Studio Code: Recommended.
+- PyCharm: It is slighly more convenient than Visual Studio Code (in PyCharm the debugger can automatically reconnect after Slicer is restarted, while in Visual Studio Code a button click is needed; PyCharm debug console is a bit easier to use). However, the professional version is required, which is only free for academic users, and someetimes PyCharm developers break the remote debugging capability (that is required for Slicer debugging).
+- Visual Studio: Same capabilities as in Visual Studio Code, but it is a bit more complicated to set up (need to open a workspace/folder, which unloads all edited files; need to edit a json file to configure the debugger configuration)
 - Eclipse: Has less features than other editors and not as convenient, but has the unique feature of being able to jump to any line within the current function.
 
 ### Instructions for PyCharm
