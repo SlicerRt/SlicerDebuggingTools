@@ -24,6 +24,7 @@ Python debuggers:
 
 - Install Professional Edition of [PyCharm]](https://www.jetbrains.com/pycharm/download/). Professional version is avaialable for anybody with an academic email address for free. Free Community edition will not work, as it does not include remote debug server.
 - In PyCharm:
+  - If you use PyCharm 2024.3: This version has a bug ([/PY-77357](https://youtrack.jetbrains.com/issue/PY-77357/Python-Debug-Server-with-pydevd-pycharm-stopped-working-in-2024.3)) that makes the debugger connection fail. Fortunately, there is a workaround: Disable `python.debug.use.single.port` (accessible from the menu: Help -> Find Action -> Registry).
   - In the menu select: `Run` / `Edit configurations`
   - Click the small + icon in the top-left (Add new configuration)
   - Select `Python remote debug configuration` or `Python debug server` as template
