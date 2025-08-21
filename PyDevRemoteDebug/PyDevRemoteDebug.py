@@ -583,7 +583,7 @@ class PyDevRemoteDebugLogic(ScriptedLoadableModuleLogic):
         try:
           import debugpy
         except ImportError:
-          slicer.util.pip_install('debugpy')
+          slicer.util.pip_install('debugpy!=1.8.16')
         try:
           import debugpy
         except ImportError:
