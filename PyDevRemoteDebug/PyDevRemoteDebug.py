@@ -583,6 +583,7 @@ class PyDevRemoteDebugLogic(ScriptedLoadableModuleLogic):
         try:
           import debugpy
         except ImportError:
+          # Using 3DSlicer on Windows (5.9.0-2025-08-17-win-amd64) VS Code could not connect using debugpy==1.8.16
           slicer.util.pip_install('debugpy!=1.8.16')
         try:
           import debugpy
