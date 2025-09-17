@@ -529,7 +529,8 @@ class PyDevRemoteDebugLogic(ScriptedLoadableModuleLogic):
       elif hasattr(pydevd, 'connected'):
         return pydevd.connected           # older version
       else:
-        return False
+        import sys
+        return bool(sys.gettrace())
 
   def connect(self):
 
@@ -579,6 +580,7 @@ class PyDevRemoteDebugLogic(ScriptedLoadableModuleLogic):
     try:
       if self.isDebuggerDebugpy():
         # Visual Studio or Visual Studio Code
+        logging.info("Connecting to VisualStudio or VS Code debugger...")
 
         try:
           import debugpy
@@ -609,9 +611,16 @@ class PyDevRemoteDebugLogic(ScriptedLoadableModuleLogic):
 
       else:
         # pydevd
+        logging.info("Connecting to pydevd...")
+        import inspect
         try:
-          import pydevd
-          pydevd.settrace('localhost', port=self.getPortNumber(), stdoutToServer=True, stderrToServer=True, suspend=False)
+          import pydevd_pycharm as pydevd
+          settraceSignature = inspect.signature(pydevd.settrace)
+          if 'stdout_to_server' in settraceSignature.parameters:
+            pydevd.settrace('localhost', port=self.getPortNumber(), stdout_to_server=True, stderr_to_server=True, suspend=False)
+          else:
+            # legacy
+            pydevd.settrace('localhost', port=self.getPortNumber(), stdoutToServer=True, stderrToServer=True, suspend=False)
         except (Exception, SystemExit) as e:
           infoDlg.hide()
           import traceback
@@ -625,9 +634,12 @@ class PyDevRemoteDebugLogic(ScriptedLoadableModuleLogic):
 
       if self.isConnected():
         # successful connection
+        logging.debug("Connect finished: connected")
         if self.enableDebuggerAutoConnectAfterSuccessfulConnection:
           self.setDebuggerAutoConnect(True)
           self.enableDebuggerAutoConnectAfterSuccessfulConnection = False
+      else:
+        logging.debug("Connect finished: not connected")
 
 class PyDevRemoteDebugTest(ScriptedLoadableModuleTest):
   """
